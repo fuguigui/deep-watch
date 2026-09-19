@@ -139,6 +139,6 @@ There is no DeepWatch account system, advertising, analytics, or telemetry. Goog
 
 ### No transcript found
 
-- Confirm the video actually has captions (native or auto-generated) turned on as an option in YouTube's own player; DeepWatch reads whatever caption tracks the player itself lists.
+- Confirm the video actually has a transcript by clicking YouTube's own **Show transcript** button (under the video description, or in the "..." menu). DeepWatch reads exactly what that panel shows, so if it spins forever or comes up empty there too, that is YouTube's transcript feature failing for that video in your browser, not something DeepWatch can work around. It usually isn't every video; try a couple of others to compare.
 - Reload the video tab, then reopen the side panel, since the transcript is read from the page's current state.
-- Shorts, live streams, and access-restricted videos may not expose a caption track this way.
+- Shorts, live streams, and access-restricted videos may not expose a transcript this way.
