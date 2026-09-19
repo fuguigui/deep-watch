@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DeepWatch Settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="settings-shell">
+      <header>
+        <div class="settings-heading-row">
+          <div class="eyebrow">DeepWatch</div>
+          <div
+            class="language-switch"
+            role="group"
+            aria-label="Interface language"
+            data-i18n-aria-label="languageGroupLabel"
+          >
+            <button
+              class="language-option"
+              type="button"
+              data-language="en"
+              aria-pressed="true"
+            >
+              English
+            </button>
+            <button
+              class="language-option"
+              type="button"
+              data-language="zh-CN"
+              aria-pressed="false"
+            >
+              中文
+            </button>
+          </div>
+        </div>
+        <h1 data-i18n="heading">Bring your own API key</h1>
+        <p class="lede" data-i18n="lede">
+          Your key stays in this Chrome profile and is sent only to Google's
+          Gemini API. Transcripts are read directly from the video's own
+          page, with no third-party transcript service. This open-source
+          extension has no developer server or analytics.
+        </p>
+      </header>
+
+      <form id="settingsForm">
+        <section class="card">
+          <h2 data-i18n="aiProvider">AI provider</h2>
+          <div
+            class="provider-summary"
+            aria-label="Supported AI provider"
+            data-i18n-aria-label="providerSummaryLabel"
+          >
+            <span class="provider-name">Google Gemini</span>
+            <span class="provider-badge" data-i18n="providerBadge"
+              >Supported in this version</span
+            >
+          </div>
+
+          <label for="aiApiKey" data-i18n="geminiApiKeyLabel"
+            >Gemini API key</label
+          >
+          <input
+            id="aiApiKey"
+            name="aiApiKey"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Paste your Gemini key"
+          />
+          <p class="help">
+            <span data-i18n="geminiHelp"
+              >DeepWatch uses Gemini for overviews, explanations, translation,
+              note polishing, and chat.</span
+            >
+            <a
+              href="https://aistudio.google.com/apikey"
+              target="_blank"
+              rel="noreferrer"
+              data-i18n="geminiLink"
+              >Create a Gemini API key</a
+            ><span data-i18n="geminiHelpSuffix">.</span>
+          </p>
+
+          <label for="aiModel" data-i18n="geminiModelLabel"
+            >Gemini model</label
+          >
+          <input
+            id="aiModel"
+            name="aiModel"
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="gemini-2.5-flash"
+          />
+          <p class="help">
+            <span data-i18n="geminiModelHelp"
+              >The Gemini model name to call. Defaults to a fast, low-cost
+              model; see the</span
+            >
+            <a
+              href="https://ai.google.dev/gemini-api/docs/models"
+              target="_blank"
+              rel="noreferrer"
+              data-i18n="geminiModelLink"
+              >list of available Gemini models</a
+            ><span data-i18n="geminiModelHelpSuffix"
+              >, for example gemini-2.5-pro for higher-quality, slower
+              responses.</span
+            >
+          </p>
+          <div class="privacy-note" data-i18n="privacyNote">
+            When you use AI features, Gemini receives the video transcript
+            and relevant video context. Review Google's terms and pricing
+            before saving.
+          </div>
+        </section>
+
+        <div class="form-actions">
+          <button class="primary" type="submit" data-i18n="saveSettings">
+            Save settings
+          </button>
+          <span id="saveStatus" role="status" aria-live="polite"></span>
+        </div>
+      </form>
+
+      <details class="card customization-card">
+        <summary class="customization-summary">
+          <span class="customization-summary-copy">
+            <span class="eyebrow" data-i18n="localRemix">Local remix</span>
+            <span class="customization-title" data-i18n="customizationTitle"
+              >Want to use another AI provider?</span
+            >
+            <span
+              class="customization-purpose"
+              data-i18n="customizationPurpose"
+              >Edit and copy a safe prompt for your coding agent</span
+            >
+          </span>
+          <span class="agent-badge" data-i18n="agentBadge"
+            >Coding agent ready</span
+          >
+        </summary>
+        <div class="customization-content">
+          <p class="help customization-intro" data-i18n="customizationIntro">
+            You can edit the prompt directly. Complete these two steps before
+            copying:
+          </p>
+          <ol class="customization-steps">
+            <li data-i18n="customizationStepFolder">
+              Open the extracted DeepWatch project folder in your coding
+              agent.
+            </li>
+            <li data-i18n="customizationStepKeys">
+              Never include API keys in the prompt or chat. Enter them yourself
+              after the code is ready.
+            </li>
+          </ol>
+          <label for="customizationPrompt" data-i18n="customizationPromptLabel"
+            >Editable customization prompt</label
+          >
+          <div
+            id="customizationPromptReminder"
+            class="prompt-reminder"
+            role="note"
+            aria-label="Prompt reminder"
+            data-i18n-aria-label="customizationReminderLabel"
+          >
+            <span data-i18n="customizationReminder"
+              >Before copying, replace [PROVIDER] with the AI service you want
+              to use instead of Gemini.</span
+            >
+          </div>
+          <textarea id="customizationPrompt" rows="12" aria-describedby="customizationPromptReminder">Customize this local DeepWatch workspace to use [PROVIDER] instead of Gemini. The model name is already a separate setting in the Settings page (aiModel in settings.js); keep that working, just point it at [PROVIDER]'s model naming instead. Work only in the current workspace. Before editing, verify that it contains manifest.json and that the manifest name is DeepWatch. If verification fails, stop and ask me to open the extracted DeepWatch project folder in my coding agent. Do not search other folders, edit a guessed copy, assume an installation path, or claim Chrome can reveal the absolute OS source path. Update the provider's API endpoint, request format, and minimum Chrome host permissions. Preserve bring-your-own-key and local Chrome storage. Never put API keys in source code, commits, logs, screenshots, this prompt, or chat; after the code is ready, tell me where to enter the key myself. Keep Gemini-only request fields and retry behavior isolated to Gemini. Handle provider-specific rules separately so one provider does not affect another. Update README.md, README.zh-CN.md, PRIVACY.md, SECURITY.md, and tests. Run npm test, npm run check, and npm run package. Then explain how to reload the unpacked extension and test it on a real video.</textarea>
+          <div class="copy-actions">
+            <button
+              id="copyCustomizationPromptBtn"
+              type="button"
+              data-i18n="copyCustomizationPrompt"
+            >
+              Copy edited prompt
+            </button>
+            <span id="copyStatus" role="status" aria-live="polite"></span>
+          </div>
+        </div>
+      </details>
+
+      <section class="card data-card">
+        <h2 data-i18n="localData">Local data</h2>
+        <p class="help" data-i18n="localDataHelp">
+          Digests, translations, and notes are stored only in this Chrome
+          profile. You can remove them at any time.
+        </p>
+        <div class="data-actions">
+          <button id="clearCacheBtn" type="button" data-i18n="clearCache">
+            Clear cached digests
+          </button>
+          <button id="clearNotesBtn" type="button" data-i18n="deleteNotes">
+            Delete all notes
+          </button>
+          <button
+            id="resetBtn"
+            class="danger"
+            type="button"
+            data-i18n="resetData"
+          >
+            Reset extension data
+          </button>
+        </div>
+        <span id="dataStatus" role="status" aria-live="polite"></span>
+      </section>
+
+      <footer data-i18n-html="footer">
+        Read <a href="PRIVACY.md" target="_blank">PRIVACY.md</a> in the
+        repository for the complete data-flow description.
+      </footer>
+    </main>
+
+    <script src="settings.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>
