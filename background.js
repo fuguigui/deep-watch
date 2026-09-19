@@ -1540,7 +1540,11 @@ async function handleTranslateContent(
 
     const settings = await getSettings();
     if (!settings.aiApiKey) {
-      return { success: false, error: "Gemini API key not configured" };
+      return {
+        success: false,
+        error: "NO_AI_KEY",
+        message: "Gemini API key not configured. Open DeepWatch Settings.",
+      };
     }
 
     const sourceSegments = validateTranscriptBatchRequest(content);
@@ -1640,6 +1644,7 @@ globalThis.__YTD_TRANSLATION_TESTING__ = {
   validateTranscriptBatchRequest,
   normalizeTranslatedSegmentBatch,
   handleSaveNote,
+  cleanupNoteText,
   handleTranslateContent,
   closePanelForTab,
   updatePanelForTab,

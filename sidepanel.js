@@ -262,15 +262,11 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupEventListeners();
   await evictOldCacheEntries(20);
 
-  const configStatus = await chrome.runtime.sendMessage({
-    action: "checkConfig",
-  });
-
-  if (!configStatus.hasAiKey) {
-    showConfigError(configStatus);
-    return;
-  }
-
+  // A Gemini key is optional, not a precondition — Transcript and Notes
+  // work fully without one. AI-only features (Overview, translation,
+  // Explain, Chat) each check for a key themselves when actually used and
+  // show a friendly "add your key in Settings" message at that point,
+  // instead of a global gate blocking everything else up front.
   await checkCurrentTab();
 });
 
@@ -1422,15 +1418,6 @@ function showError(title, message) {
   document.getElementById("errorBtn").textContent = "Try Again";
 }
 
-function showConfigError(configStatus) {
-  showState("error");
-  document.getElementById("errorTitle").textContent = "API Key Missing";
-  document.getElementById("errorMessage").textContent =
-    "Add your Gemini API key in DeepWatch Settings.";
-  document.getElementById("errorBtn").textContent = "Open Settings";
-  errorAction = () => chrome.runtime.sendMessage({ action: "openOptions" });
-}
-
 // ============================================================
 // TAB SWITCHING
 // ============================================================
@@ -1536,8 +1523,10 @@ async function triggerAnalysis() {
     });
 
     if (!analysisResult.success) {
+      const message = friendlyAiErrorMessage(analysisResult, "Overview");
       if (chapterList)
-        chapterList.innerHTML = `<li class="chapter-item" style="color: var(--accent); border: none;">Analysis failed: ${escapeHtml(analysisResult.error || "Unknown error")}</li>`;
+        chapterList.innerHTML = `<li class="chapter-item" style="color: var(--accent); border: none;">${escapeHtml(message)}</li>`;
+      if (quotesList) quotesList.innerHTML = "";
       isAnalysisLoading = false;
       return;
     }
@@ -1641,6 +1630,19 @@ function escapeHtml(text) {
   const div = document.createElement("div");
   div.textContent = text || "";
   return div.innerHTML;
+}
+
+/**
+ * Turns a failed AI feature's response into a friendly message. A Gemini
+ * key is optional, so missing-key results are common and expected here
+ * (never a crash) — this just points the person at Settings instead of
+ * showing them the raw "NO_AI_KEY" error code.
+ */
+function friendlyAiErrorMessage(result, featureLabel) {
+  if (result?.error === "NO_AI_KEY") {
+    return `Add your Gemini API key in Settings to use ${featureLabel}.`;
+  }
+  return result?.message || result?.error || "Something went wrong.";
 }
 
 /**
@@ -1918,7 +1920,8 @@ async function showExplanation(selectedText) {
     if (result.success) {
       contentDiv.innerHTML = `<div class="explain-text">${escapeHtml(result.explanation).replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br>")}</div>`;
     } else {
-      contentDiv.innerHTML = `<div class="explain-error">Failed to get explanation: ${escapeHtml(result.error)}</div>`;
+      const message = friendlyAiErrorMessage(result, "Explain");
+      contentDiv.innerHTML = `<div class="explain-error">${escapeHtml(message)}</div>`;
     }
   } catch (error) {
     const contentDiv = document.getElementById("explanationContent");
@@ -2770,7 +2773,7 @@ async function requestTranscriptTranslationBatch(
     const aligned = alignTranslatedSegmentBatch(sourceBatch, responseSegments);
     aligned.forEach((item, batchIndex) => {
       if (!result?.success) {
-        item.error = result?.error || "Translation failed.";
+        item.error = friendlyAiErrorMessage(result, "translation");
       }
       updateTranslatedRow(
         sourceBatch[batchIndex],
@@ -3246,7 +3249,7 @@ async function sendChatMessage() {
     });
 
     if (!result?.success) {
-      throw new Error(result?.error || "Chat request failed");
+      throw new Error(friendlyAiErrorMessage(result, "Chat"));
     }
 
     currentChatSession.messages.push({

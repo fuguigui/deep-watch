@@ -12,6 +12,8 @@
 - 保存整理好的时间戳笔记留待复习，也可以按视频导出聊天记录。
 - 使用你自己的 Gemini API 密钥和本地 Chrome 存储掌控数据，没有分析或遥测。
 
+Gemini API 密钥是可选的，不是必须条件：字幕和笔记功能不需要任何密钥就能完整使用。只有 AI 相关功能（概览、翻译、划词解释、Chat）才需要密钥，没配置的话，这几个功能会各自提示你去设置页面添加，不会影响其他功能。
+
 DeepWatch 是一个从 GitHub 本地安装、使用你自己 API 密钥的项目。它不在 Chrome 网上应用店上架，不附带 API 额度，也不运行开发者自己的服务器。
 
 DeepWatch 是 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/youtube-digest) 的一个 fork 改造项目，大部分功能都来自这个原始项目。改了哪些地方见下方的[致谢](#致谢)部分。
@@ -49,9 +51,9 @@ DeepWatch 是 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/yout
 
 因为这是一个未打包的扩展，它不会自动更新。每次下载更新或修改本地文件后，请在 `chrome://extensions` 的 DeepWatch 卡片上点击「重新加载」，然后刷新已打开的视频标签页。移动或删除源代码文件夹，会导致已加载的扩展失效，需要从新的位置重新加载。
 
-## 配置你的 Gemini API 密钥
+## 配置你的 Gemini API 密钥（可选）
 
-DeepWatch 需要一个属于你自己 Google 账号的密钥，用于生成概览、解释内容、翻译字幕、润色笔记以及聊天功能。
+这一步是可选的，字幕和笔记功能不需要任何密钥就能完整使用。DeepWatch 只在使用 AI 相关功能（生成概览、解释内容、翻译字幕、润色笔记、聊天）时，才需要一个属于你自己 Google 账号的密钥。
 
 1. 打开官方的 [Google AI Studio API 密钥页面](https://aistudio.google.com/apikey)。
 2. 用你的 Google 账号登录并创建一个 API 密钥。

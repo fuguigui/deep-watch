@@ -294,6 +294,42 @@ test("runtime has no source-file credential dependency or retired model", () => 
   assert.match(runtime, /gemini-2\.5-flash/);
 });
 
+test("a missing Gemini key is optional, never a precondition for Transcript or Notes", () => {
+  const sidepanelSource = read("sidepanel.js");
+  const optionsSource = read("options.js");
+  const backgroundSource = read("background.js");
+
+  // Startup must never gate the whole panel on whether a key is configured
+  // — it used to call checkConfig and bail out to a full-screen error
+  // before Transcript or Notes ever got a chance to load.
+  assert.doesNotMatch(sidepanelSource, /hasAiKey/);
+  assert.doesNotMatch(sidepanelSource, /showConfigError/);
+  assert.match(
+    sidepanelSource,
+    /DOMContentLoaded[\s\S]{0,600}await checkCurrentTab\(\);\n\}\)/,
+  );
+
+  // Saving Settings must accept an empty key (opting out of AI features)
+  // rather than refusing to save until one is entered.
+  assert.doesNotMatch(optionsSource, /addGeminiKey/);
+  assert.match(
+    optionsSource,
+    /async function saveSettings\(event\) \{[\s\S]{0,600}await storage\.set/,
+  );
+
+  // Reading, deleting, or fetching a transcript must never depend on an AI
+  // key — only note *cleanup* (an optional polish step, see the
+  // cleanupNoteText test in translation.test.js) may check for one, and it
+  // degrades instead of failing.
+  for (const fn of ["handleGetNotes", "handleDeleteNote", "handleFetchTranscript"]) {
+    const match = backgroundSource.match(
+      new RegExp(`\\nasync function ${fn}\\([\\s\\S]*?\\n\\}\\n`),
+    );
+    assert.ok(match, `Expected to find ${fn}`);
+    assert.doesNotMatch(match[0], /aiApiKey/);
+  }
+});
+
 test("background reconciles side-panel state after navigation commits", () => {
   const background = read("background.js");
 

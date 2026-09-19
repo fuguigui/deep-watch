@@ -12,6 +12,8 @@ Turn every video into a resource for deep learning. DeepWatch brings transcripts
 - Save polished timestamped notes for later study, and export your chat history per video.
 - Keep control of your data with your own Gemini API key, local Chrome storage, and no analytics or telemetry.
 
+A Gemini API key is optional, not required: Transcript and Notes work fully without one. Only the AI features (Overview, translation, Explain, Chat) need a key, and each one just says so and points you at Settings if you try it without one.
+
 DeepWatch is a bring-your-own-key project installed locally from GitHub. It is not available through the Chrome Web Store, does not include API credits, and does not run a developer-operated server.
 
 DeepWatch is a fork and remix of [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/youtube-digest); most of its functionality comes directly from that project. See [Credits](#credits) below for what changed.
@@ -49,9 +51,9 @@ If you prefer to do it yourself:
 
 Because this is an unpacked extension, it does not update automatically. After downloading an update or changing local files, click **Reload** on the DeepWatch card at `chrome://extensions`, then refresh open video tabs. Moving or deleting the source folder breaks the unpacked extension until you load it again from the new location.
 
-## Set up your Gemini API key
+## Set up your Gemini API key (optional)
 
-DeepWatch needs one key, under your own Google account, for overviews, explanations, translation, note polishing, and chat.
+This step is optional. Transcript and Notes work fully without a key. DeepWatch only needs one, under your own Google account, for the AI features: overviews, explanations, translation, note polishing, and chat.
 
 1. Open the official [Google AI Studio API keys page](https://aistudio.google.com/apikey).
 2. Sign in with your Google account and create an API key.

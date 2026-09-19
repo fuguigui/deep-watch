@@ -336,6 +336,26 @@ test("selected transcript notes keep exact text and row timestamp", async () => 
   );
 });
 
+test("note cleanup degrades to raw context instead of failing when no Gemini key is configured", async () => {
+  const providerMustNotRun = async () => {
+    throw new Error("cleanupNoteText must not call Gemini without a key");
+  };
+  const { cleanupNoteText } = loadBackgroundHelpers({
+    settings: { provider: "gemini", aiApiKey: "", aiModel: "gemini-2.5-flash" },
+    fetchImpl: providerMustNotRun,
+  });
+
+  const text = await cleanupNoteText(
+    "target line",
+    "before line",
+    "after line",
+    "full context",
+    "Video title",
+  );
+
+  assert.equal(text, "before line target line after line");
+});
+
 test("semantic segmentation rebuilds sentences across caption boundaries", () => {
   const { groupTranscriptEntries } = loadSidepanelHelpers();
   const segments = groupTranscriptEntries(

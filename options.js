@@ -7,9 +7,9 @@ const YTD_OPTIONS = (() => {
     en: {
       pageTitle: "DeepWatch Settings",
       languageGroupLabel: "Interface language",
-      heading: "Bring your own API key",
+      heading: "Bring your own API key (optional)",
       lede:
-        "Your key stays in this Chrome profile and is sent only to Google's Gemini API. Transcripts are read directly from the video's own page, with no third-party transcript service. This open-source extension has no developer server or analytics.",
+        "Transcripts and Notes work without any key, read directly from the video's own page with no third-party transcript service. A Gemini API key only unlocks Overview, translation, Explain, and Chat, and stays in this Chrome profile, sent only to Google's Gemini API. This open-source extension has no developer server or analytics.",
       aiProvider: "AI provider",
       providerSummaryLabel: "Supported AI provider",
       providerBadge: "Supported in this version",
@@ -53,7 +53,6 @@ const YTD_OPTIONS = (() => {
       footer:
         'Read <a href="PRIVACY.md" target="_blank">PRIVACY.md</a> in the repository for the complete data-flow description.',
       saving: "Saving…",
-      addGeminiKey: "Add a Gemini API key.",
       saved: "Saved. Reopen DeepWatch to use these settings.",
       saveFailed: "Could not save settings. Please try again.",
       copying: "Copying…",
@@ -72,9 +71,9 @@ const YTD_OPTIONS = (() => {
     "zh-CN": {
       pageTitle: "DeepWatch 设置",
       languageGroupLabel: "界面语言",
-      heading: "使用你自己的 API 密钥",
+      heading: "使用你自己的 API 密钥（可选）",
       lede:
-        "密钥仅保存在当前 Chrome 个人资料中，只会发送给 Google 的 Gemini API。字幕直接从视频所在网页读取，不经过任何第三方字幕服务。本开源扩展没有开发者服务器，也不使用分析服务。",
+        "不填密钥也能正常使用字幕和笔记功能，字幕直接从视频所在网页读取，不经过任何第三方字幕服务。Gemini API 密钥只用来解锁概览、翻译、划词解释和聊天这几个功能，密钥仅保存在当前 Chrome 个人资料中，只会发送给 Google 的 Gemini API。本开源扩展没有开发者服务器，也不使用分析服务。",
       aiProvider: "AI 服务",
       providerSummaryLabel: "支持的 AI 服务",
       providerBadge: "当前版本支持",
@@ -116,7 +115,6 @@ const YTD_OPTIONS = (() => {
       footer:
         '完整数据流说明请参阅仓库中的 <a href="PRIVACY.md" target="_blank">PRIVACY.md</a>。',
       saving: "正在保存…",
-      addGeminiKey: "请添加 Gemini API 密钥。",
       saved: "已保存。请重新打开 DeepWatch 以使用这些设置。",
       saveFailed: "无法保存设置，请重试。",
       copying: "正在复制…",
@@ -427,15 +425,13 @@ const YTD_OPTIONS = (() => {
       event.preventDefault();
       setStatus(saveStatus, "saving");
 
+      // A Gemini key is optional: Transcript and Notes work without one.
+      // Leaving the field blank just means the AI-only features (Overview,
+      // translation, Explain, Chat) stay off until a key is added later.
       const settings = settingsApi.normalize({
         aiApiKey: aiApiKeyInput.value,
         aiModel: aiModelInput.value,
       });
-
-      if (!settings.aiApiKey) {
-        setStatus(saveStatus, "addGeminiKey");
-        return;
-      }
 
       try {
         await storage.set({ [settingsApi.STORAGE_KEY]: settings });
