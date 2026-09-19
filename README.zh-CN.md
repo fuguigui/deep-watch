@@ -14,6 +14,8 @@
 
 DeepWatch 是一个从 GitHub 本地安装、使用你自己 API 密钥的项目。它不在 Chrome 网上应用店上架，不附带 API 额度，也不运行开发者自己的服务器。
 
+DeepWatch 是 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/youtube-digest) 的一个 fork 改造项目，大部分功能都来自这个原始项目。改了哪些地方见下方的[致谢](#致谢)部分。
+
 ## 用编程 Agent 安装
 
 你不需要懂代码或使用命令行。把下面这段话发给你的编程 Agent 即可：
@@ -109,6 +111,18 @@ DeepWatch 使用纯 HTML、CSS 和 JavaScript，没有构建步骤，很适合�
 - 增加键盘导航、字体控制和更高对比度的主题，提升可访问性。
 
 如果你想换成另一个 AI 服务或模型，请先在编程 Agent 中打开 Chrome 通过「加载已解压的扩展程序」使用的那个准确的 DeepWatch 项目文件夹。然后打开 DeepWatch 设置，在「本地改造」里使用「复制编辑后的提示词」。发送前请把 `[PROVIDER]` 替换掉。不要在提示词或聊天中包含任何 API 密钥。等 Agent 更新完你的本地副本后，再按它指出的位置自己填写密钥。
+
+## 致谢
+
+DeepWatch 是 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/youtube-digest) 的一个 fork 改造项目，原项目由 Zara Zhang 以 MIT 协议开源（见 [LICENSE](LICENSE)）。DeepWatch 的大部分功能、界面和整体结构都直接来自这个项目：Digest 按钮、Note 按钮和它的 "n" 键快捷方式、Transcript / Overview / Notes 三个标签页、原文 / 中文 / 双语这几种显示模式，以及这个 fork 继续沿用的发布工具和测试用例。
+
+这个 fork 主要改了三件事：
+
+- 字幕抓取不再依赖 Supadata API，改成直接从视频所在网页读取字幕，完全免费，也不需要字幕 API 密钥（见 `transcript/youtube.js`）。
+- 所有 AI 功能（概览、解释、翻译、笔记润色）从 DeepSeek 换成了 Google Gemini，模型可以在设置页面里配置。
+- 新增了 Chat 标签页：可以逐词点击的字幕视图、点词跳转、实时高亮，按视频保存的 Gemini 对话，以及导出为 JSON。
+
+上游（youtube-digest）不接受针对这个 fork 的 Issue 或 Pull Request；如果这里出了问题，请按 youtube-digest 自己 README 里建议的方式，下载自己的副本，让编程 Agent 帮你修复。
 
 ## 隐私与数据流向
 

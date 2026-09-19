@@ -99,6 +99,9 @@ test("release copy documents current scope without em dashes", () => {
   // No third-party transcript service or DeepSeek-specific pricing/setup
   // copy should remain anywhere published: transcripts are free and direct
   // from the video's own page, and every AI feature now runs on Gemini.
+  // A one-time, historical mention of both in the README's Credits section
+  // (explaining what this fork changed from youtube-digest) is fine — only
+  // the old setup/pricing instructions must be gone.
   const publishedDocs = [
     readme,
     chineseReadme,
@@ -106,12 +109,23 @@ test("release copy documents current scope without em dashes", () => {
     read("SECURITY.md"),
     read("options.html"),
   ].join("\n");
-  assert.doesNotMatch(publishedDocs, /supadata/i);
-  assert.doesNotMatch(publishedDocs, /deepseek/i);
+  assert.doesNotMatch(publishedDocs, /supadata\.ai/i);
+  assert.doesNotMatch(publishedDocs, /Supadata API key/i);
+  assert.doesNotMatch(publishedDocs, /platform\.deepseek\.com/i);
+  assert.doesNotMatch(publishedDocs, /api-docs\.deepseek\.com/i);
+  assert.doesNotMatch(publishedDocs, /DeepSeek API key/i);
   assert.doesNotMatch(publishedDocs, /custom OpenAI-compatible/i);
   assert.doesNotMatch(publishedDocs, /optional custom-origin/i);
   assert.doesNotMatch(publishedDocs, /chosen AI provider/i);
   assert.doesNotMatch(publishedDocs, /configure a different OpenAI-compatible/i);
+  assert.match(readme, /fork and remix of \[zarazhangrui\/youtube-digest\]/);
+  assert.match(
+    readme,
+    /https:\/\/github\.com\/zarazhangrui\/youtube-digest/,
+  );
+  assert.match(chineseReadme, /zarazhangrui\/youtube-digest/);
+  assert.match(readme, /^## Credits$/m);
+  assert.match(chineseReadme, /^## 致谢$/m);
 
   assert.match(readme, /aistudio\.google\.com\/apikey/i);
   assert.match(readme, /ai\.google\.dev\/gemini-api\/docs\/models/i);

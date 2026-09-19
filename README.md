@@ -14,6 +14,8 @@ Turn every video into a resource for deep learning. DeepWatch brings transcripts
 
 DeepWatch is a bring-your-own-key project installed locally from GitHub. It is not available through the Chrome Web Store, does not include API credits, and does not run a developer-operated server.
 
+DeepWatch is a fork and remix of [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/youtube-digest); most of its functionality comes directly from that project. See [Credits](#credits) below for what changed.
+
 ## Install with your coding agent
 
 You do not need to understand the code or use the command line. Send this message to your coding agent:
@@ -109,6 +111,18 @@ DeepWatch uses plain HTML, CSS, and JavaScript with no build step, so it is a fr
 - Improve accessibility with keyboard navigation, font controls, and higher-contrast themes.
 
 If you want another AI provider or model, first open the exact DeepWatch project folder that Chrome loaded through **Load unpacked** in your coding agent. Then open DeepWatch Settings and use **Copy edited prompt** under **Local remix**. Replace the `[PROVIDER]` placeholder before sending it. Do not include any API key in the prompt or chat. After the agent updates your local copy, enter the key yourself in the Settings field it identifies.
+
+## Credits
+
+DeepWatch is a fork and remix of [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/youtube-digest), MIT-licensed by Zara Zhang (see [LICENSE](LICENSE)). Most of DeepWatch's functionality, UI, and overall structure comes directly from that project: the Digest button, the Note button and its "n" keyboard shortcut, the Transcript/Overview/Notes tabs, the Original/Chinese/bilingual display modes, and the release tooling and test suite this fork builds on.
+
+This fork changes three things:
+
+- Transcript fetching no longer uses the Supadata API; it reads the transcript directly from the video's own page instead, at no cost and with no transcript API key (see `transcript/youtube.js`).
+- Every AI feature (overview, explanations, translation, note polishing) now runs on Google Gemini instead of DeepSeek, with the model configurable in Settings.
+- A Chat tab was added: a word-clickable subtitle view with click-to-seek and live highlighting, a per-video Gemini conversation, and JSON export.
+
+Upstream (youtube-digest) does not accept issues or pull requests for this fork; if something here breaks, download your own copy and ask your coding agent to fix it, the same way youtube-digest's own README recommends.
 
 ## Privacy and data flow
 
