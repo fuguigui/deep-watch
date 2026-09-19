@@ -19,11 +19,19 @@
  * The player object lives in the PAGE's own JavaScript world, not the
  * "isolated world" a content script normally runs in, so a plain content
  * script can't see it. With the "scripting" permission we can run a tiny
- * function directly in the page's world (world: "MAIN") to read it, then
- * fetch the track's baseUrl ourselves — on demand, the moment we need the
- * transcript, rather than waiting for the browser to happen to request it
- * on its own (which is how the old passive "watch the network" approach
- * worked, and why it could miss videos entirely).
+ * function directly in the page's world (world: "MAIN") to read it — on
+ * demand, the moment we need the transcript, rather than waiting for the
+ * browser to happen to request it on its own (which is how the old passive
+ * "watch the network" approach worked, and why it could miss videos
+ * entirely).
+ *
+ * The actual caption-track download also has to happen from THAT same
+ * MAIN-world script, not from the extension's background service worker.
+ * A fetch from the background runs as the extension's own origin
+ * (chrome-extension://…), and YouTube's timedtext endpoint quietly
+ * returns a 200 with an empty body for that — no error, just nothing to
+ * parse. A fetch issued from the page itself carries the page's own
+ * origin, referrer, and cookies, which the endpoint expects.
  *
  * Returned shape (kept identical to the old Supadata-based fetch so every
  * caller — analysis, notes, translation, side panel rendering — needed no
@@ -39,33 +47,16 @@
  */
 var YTD_TRANSCRIPT_YOUTUBE = (() => {
   /**
-   * Reads the current video's caption track list straight from YouTube's
-   * player, running in the page's own JS world.
-   */
-  async function getCaptionTracks(tabId) {
-    const results = await chrome.scripting.executeScript({
-      target: { tabId },
-      world: "MAIN",
-      func: () => {
-        try {
-          const player = document.getElementById("movie_player");
-          const tracks =
-            player?.getPlayerResponse?.()?.captions
-              ?.playerCaptionsTracklistRenderer?.captionTracks;
-          return Array.isArray(tracks) ? tracks : [];
-        } catch (e) {
-          return [];
-        }
-      },
-    });
-    return results?.[0]?.result || [];
-  }
-
-  /**
    * Picks the best available track: the requested language first, then any
    * track whose language starts with it (e.g. "en" matches "en-US"), then
    * any manually authored (non auto-generated) track, then whatever is
    * left. Mirrors the old Supadata request's "lang=en" preference.
+   *
+   * Kept as a real function for the module's own use (tests, other
+   * adapters), but note that fetchInPage below carries its own inlined
+   * copy — a function passed to chrome.scripting.executeScript runs in
+   * an isolated copy of the page's world and can't close over anything
+   * from this file, so the logic has to be duplicated there.
    */
   function pickTrack(tracks, preferredLang = "en") {
     if (!tracks || tracks.length === 0) return null;
@@ -79,14 +70,66 @@ var YTD_TRANSCRIPT_YOUTUBE = (() => {
     return manual || tracks[0];
   }
 
-  async function fetchTrackEvents(baseUrl) {
-    const url = new URL(baseUrl);
-    url.searchParams.set("fmt", "json3");
-    const response = await fetch(url.toString());
-    if (!response.ok) {
-      throw new Error(`Caption track request failed: ${response.status}`);
-    }
-    return response.json();
+  /**
+   * Reads the caption track list AND downloads the chosen track's timed
+   * text, all in one call, running entirely in the page's own JS world.
+   *
+   * Both steps have to happen there: getPlayerResponse() only exists on
+   * the page's player object, and the caption download itself only
+   * returns real data when it comes from the page's own origin (see the
+   * file header). Running them as two separate calls would still fetch
+   * from the wrong context for the second step.
+   *
+   * @returns {{ok: true, data, languageCode} | {ok: false, error}}
+   */
+  async function fetchInPage(tabId, preferredLang) {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      world: "MAIN",
+      args: [preferredLang],
+      func: async (preferredLang) => {
+        function pickTrack(tracks, lang) {
+          const exact = tracks.find((t) => t.languageCode === lang);
+          if (exact) return exact;
+          const prefixMatch = tracks.find((t) =>
+            (t.languageCode || "").startsWith(lang),
+          );
+          if (prefixMatch) return prefixMatch;
+          const manual = tracks.find((t) => t.kind !== "asr");
+          return manual || tracks[0];
+        }
+
+        try {
+          const player = document.getElementById("movie_player");
+          const tracks =
+            player?.getPlayerResponse?.()?.captions
+              ?.playerCaptionsTracklistRenderer?.captionTracks;
+          if (!Array.isArray(tracks) || tracks.length === 0) {
+            return { ok: false, error: "NO_TRANSCRIPT" };
+          }
+
+          const track = pickTrack(tracks, preferredLang);
+          const url = new URL(track.baseUrl);
+          url.searchParams.set("fmt", "json3");
+
+          const response = await fetch(url.toString());
+          if (!response.ok) {
+            return { ok: false, error: `HTTP_${response.status}` };
+          }
+          const text = await response.text();
+          if (!text) {
+            return { ok: false, error: "EMPTY_RESPONSE" };
+          }
+          const data = JSON.parse(text);
+          return { ok: true, data, languageCode: track.languageCode || null };
+        } catch (e) {
+          return { ok: false, error: e.message || "UNKNOWN_ERROR" };
+        }
+      },
+    });
+    return (
+      results?.[0]?.result || { ok: false, error: "SCRIPT_INJECTION_FAILED" }
+    );
   }
 
   /**
@@ -163,9 +206,9 @@ var YTD_TRANSCRIPT_YOUTUBE = (() => {
       };
     }
 
-    let tracks;
+    let result;
     try {
-      tracks = await getCaptionTracks(tabId);
+      result = await fetchInPage(tabId, "en");
     } catch (error) {
       return {
         success: false,
@@ -175,29 +218,30 @@ var YTD_TRANSCRIPT_YOUTUBE = (() => {
       };
     }
 
-    if (!tracks.length) {
-      return {
-        success: false,
-        error: "NO_TRANSCRIPT",
-        message: "No native subtitle track is available for this video.",
-      };
-    }
-
-    const track = pickTrack(tracks, "en");
-
-    let data;
-    try {
-      data = await fetchTrackEvents(track.baseUrl);
-    } catch (error) {
+    if (!result.ok) {
+      if (result.error === "NO_TRANSCRIPT") {
+        return {
+          success: false,
+          error: "NO_TRANSCRIPT",
+          message: "No native subtitle track is available for this video.",
+        };
+      }
+      if (result.error === "EMPTY_RESPONSE") {
+        return {
+          success: false,
+          error: "EMPTY_TRANSCRIPT",
+          message: "YouTube returned an empty caption track for this video.",
+        };
+      }
       return {
         success: false,
         error: "FETCH_FAILED",
-        message: error.message || "Failed to download the caption track.",
+        message: `Failed to download the caption track (${result.error}).`,
       };
     }
 
     const { transcript, transcriptTextPlain, transcriptTextTimestamped } =
-      buildTranscript(data, track.languageCode);
+      buildTranscript(result.data, result.languageCode);
 
     if (transcript.length === 0) {
       return {
@@ -212,11 +256,11 @@ var YTD_TRANSCRIPT_YOUTUBE = (() => {
       transcript,
       transcriptText: transcriptTextPlain,
       transcriptTextTimestamped: transcriptTextTimestamped,
-      language: track.languageCode || null,
+      language: result.languageCode || null,
     };
   }
 
-  return { fetchTranscript, getCaptionTracks, pickTrack, buildTranscript };
+  return { fetchTranscript, fetchInPage, pickTrack, buildTranscript };
 })();
 
 if (typeof module !== "undefined" && module.exports) {
