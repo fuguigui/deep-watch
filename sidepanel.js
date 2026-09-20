@@ -31,14 +31,13 @@ let errorAction = null;
 
 // --- Chat tab state ---
 let currentChatSession = null; // { meta: {session_id, topic_hint, video_id}, messages: [] }
-let chatSubtitleEntries = []; // Flattened clickable words: [{ element, timeMs }]
 let isChatSending = false;
 
 // --- Translation state ---
 // The universal language control supports original content, Chinese, and an
 // aligned bilingual view across Transcript, Overview, and Notes.
 let currentTranscriptMode = "original";
-const DISPLAY_LANGUAGE_MODE_KEY = "ytd_display_language_modes_by_video";
+const DISPLAY_LANGUAGE_MODE_KEY = "dw_display_language_modes_by_video";
 const DISPLAY_LANGUAGE_MODES = new Set(["original", "zh", "bilingual"]);
 let translationGeneration = 0; // Invalidates responses from older UI modes/videos.
 let translationWorkCount = 0;
@@ -106,7 +105,7 @@ let lastAutoScrollTime = 0; // Timestamp of last programmatic scroll (ignores sc
 
 // --- Transcript reading position state ---
 // Session storage survives a side panel close but clears when Chrome closes.
-const TRANSCRIPT_VIEW_STATE_KEY = "ytd_transcript_view_state";
+const TRANSCRIPT_VIEW_STATE_KEY = "dw_transcript_view_state";
 let pendingTranscriptViewState = null;
 let transcriptViewStateSaveTimer = null;
 let isRestoringTranscriptView = false;
@@ -270,10 +269,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   await checkCurrentTab();
 });
 
-// Listen for messages from the Digest button on YouTube page
+// Listen for messages from the DeepWatch button on YouTube page
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === "startDigestFromButton") {
-    // Load the digest for the current video. Served from cache when we've
+  if (message.action === "loadVideoFromButton") {
+    // Load the current video. Served from cache when we've
     // seen this video before (no API calls); fetched fresh otherwise.
     // (This used to force-clear the cache on every click, which silently
     // burned a transcript credit + analysis tokens per click.)
@@ -306,10 +305,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 //     apply per-tab panel state to tabs spawned in unusual ways (e.g. a
 //     link opened from another app) — which let the panel linger on
 //     non-YouTube pages.
-//   - Front tab IS YouTube but on a different video -> refresh the digest.
+//   - Front tab IS YouTube but on a different video -> refresh the panel.
 //     YouTube is a single-page app (clicking a video swaps content without
-//     a reload), so we track URL changes; startDigest() caches per video,
-//     making re-checks instant and free for already-digested videos.
+//     a reload), so we track URL changes; loadVideo() caches per video,
+//     making re-checks instant and free for already-loaded videos.
 //
 // Everything is scoped to the window this panel lives in: tab switches in
 // OTHER browser windows must not close this panel or hijack its content.
@@ -320,7 +319,7 @@ chrome.windows.getCurrent().then((w) => {
   panelWindowId = w.id;
 });
 
-function scheduleDigestRefresh() {
+function scheduleVideoRefresh() {
   // Small delay lets YouTube finish rendering the new video's title and
   // description before we read them. Also collapses rapid-fire URL events
   // into a single refresh.
@@ -337,7 +336,7 @@ function panelIsShowingResults() {
 
 /**
  * Reacts to the URL now in front of the panel: close on non-YouTube,
- * refresh the digest when the video changed.
+ * refresh the panel when the video changed.
  */
 function handleFrontTabUrl(url) {
   if (!(url || "").startsWith("https://www.youtube.com")) {
@@ -352,7 +351,7 @@ function handleFrontTabUrl(url) {
   // Refresh when the video changed, or when we're not currently showing
   // results (e.g. user went home, then clicked back into the same video).
   if (newVideoId !== currentVideoId || !panelIsShowingResults()) {
-    scheduleDigestRefresh();
+    scheduleVideoRefresh();
   }
 }
 
@@ -407,7 +406,7 @@ function setupEventListeners() {
       return;
     }
     if (currentVideoId) {
-      startDigest(currentVideoId, currentVideoUrl);
+      loadVideo(currentVideoId, currentVideoUrl);
     }
   });
 
@@ -535,7 +534,7 @@ async function checkCurrentTab() {
         currentVideoDuration = 0;
       }
 
-      startDigest(videoId, tab.url);
+      loadVideo(videoId, tab.url);
     } else {
       showState("welcome");
     }
@@ -571,10 +570,10 @@ function extractVideoId(url) {
 }
 
 // ============================================================
-// DIGEST PIPELINE
+// VIDEO LOADING PIPELINE
 // ============================================================
 
-async function startDigest(videoId, videoUrl) {
+async function loadVideo(videoId, videoUrl) {
   // Check if we already have this video loaded in memory
   if (videoId === currentVideoId && currentAnalysis) {
     showState("results");
@@ -637,7 +636,6 @@ async function startDigest(videoId, videoUrl) {
 
     // Always render transcript first
     renderTranscript();
-    renderChatSubtitles();
 
     // Render analysis if we have it cached
     if (currentAnalysis) {
@@ -698,7 +696,6 @@ async function startDigest(videoId, videoUrl) {
 
   // Render transcript immediately (no LLM needed)
   renderTranscript();
-  renderChatSubtitles();
   showState("results");
   document.getElementById("tabsNav").style.display = "flex";
   restorePendingTranscriptViewState(videoId);
@@ -1473,9 +1470,7 @@ function switchTab(tabName) {
     panel.classList.toggle("active", panel.dataset.panel === tabName);
   });
 
-  // Start/stop playback tracking based on which tab is active. The Chat tab
-  // also needs the current time (to highlight the word being spoken), so it
-  // shares the same tracker as the Transcript tab rather than polling twice.
+  // Playback tracking only drives the Transcript tab's highlight and scroll.
   if (tabName === "transcript") {
     // Notes always opens at the top, so restore the independent transcript
     // reading position when the user returns here.
@@ -1486,11 +1481,9 @@ function switchTab(tabName) {
       contentArea.scrollTop = lastTranscriptScrollTop;
     });
     startPlaybackTracking();
-  } else if (tabName === "chat") {
-    startPlaybackTracking();
-    void maybeShowChatKeyHint();
   } else {
     stopPlaybackTracking();
+    if (tabName === "chat") void maybeShowChatKeyHint();
   }
 
   // Saved notes are stored newest first. Open Notes at the top so the note the
@@ -1986,7 +1979,7 @@ function getTranscriptContext(selectedText) {
 // ============================================================
 
 /**
- * Saves the current digest results to persistent local storage.
+ * Saves the current video results to persistent local storage.
  * Results survive browser restarts — reopening the same video loads from cache
  * without consuming API tokens or refetching captions.
  * Cache expires after 30 days. Oldest entries evicted when > 20 videos cached.
@@ -2022,7 +2015,7 @@ async function saveToCache(videoId) {
       timestamp: Date.now(),
     };
 
-    await chrome.storage.local.set({ [`digest_${videoId}`]: cacheData });
+    await chrome.storage.local.set({ [`video_cache_${videoId}`]: cacheData });
     debugLog(
       "Saved to cache:",
       videoId,
@@ -2045,24 +2038,24 @@ async function saveToCache(videoId) {
 async function evictOldCacheEntries(maxEntries) {
   try {
     const allData = await chrome.storage.local.get(null);
-    let digestKeys = Object.keys(allData).filter((k) =>
-      k.startsWith("digest_"),
+    let cacheKeys = Object.keys(allData).filter((k) =>
+      k.startsWith("video_cache_"),
     );
     const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-    const expired = digestKeys.filter((key) => {
+    const expired = cacheKeys.filter((key) => {
       const timestamp = Number(allData[key]?.timestamp) || 0;
       return Date.now() - timestamp > THIRTY_DAYS;
     });
     if (expired.length) {
       await chrome.storage.local.remove(expired);
       const expiredSet = new Set(expired);
-      digestKeys = digestKeys.filter((key) => !expiredSet.has(key));
+      cacheKeys = cacheKeys.filter((key) => !expiredSet.has(key));
     }
 
-    if (digestKeys.length <= maxEntries) return;
+    if (cacheKeys.length <= maxEntries) return;
 
     // Sort by timestamp (oldest first) and remove excess
-    const sorted = digestKeys
+    const sorted = cacheKeys
       .map((k) => ({ key: k, ts: allData[k]?.timestamp || 0 }))
       .sort((a, b) => a.ts - b.ts);
 
@@ -2079,22 +2072,22 @@ async function evictOldCacheEntries(maxEntries) {
 }
 
 /**
- * Loads digest results from persistent local storage.
+ * Loads video results from persistent local storage.
  * Returns null if not cached or expired (30-day expiry).
  */
 async function loadFromCache(videoId) {
   if (!videoId) return null;
 
   try {
-    const result = await chrome.storage.local.get(`digest_${videoId}`);
-    const cached = result[`digest_${videoId}`];
+    const result = await chrome.storage.local.get(`video_cache_${videoId}`);
+    const cached = result[`video_cache_${videoId}`];
 
     if (!cached) return null;
 
     // Cache expires after 30 days
     const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
     if (Date.now() - cached.timestamp > THIRTY_DAYS) {
-      await chrome.storage.local.remove(`digest_${videoId}`);
+      await chrome.storage.local.remove(`video_cache_${videoId}`);
       return null;
     }
 
@@ -2429,8 +2422,7 @@ function startPlaybackTracking() {
     pendingTranscriptViewState?.videoId === currentVideoId;
   autoScrollEnabled = !willRestoreReadingPosition;
   // The "Follow playback" button only makes sense while looking at the
-  // transcript list it scrolls — never show it while on the Chat tab, which
-  // shares this same tracker just for the current-word highlight.
+  // transcript list it scrolls.
   document.getElementById("followPlaybackBtn").style.display =
     willRestoreReadingPosition && transcriptTabIsActive() ? "block" : "none";
 
@@ -2445,7 +2437,7 @@ function startPlaybackTracking() {
 
 /**
  * Stops playback tracking entirely. Called when leaving transcript tab,
- * starting a new digest, or leaving results state.
+ * loading a new video, or leaving results state.
  */
 function stopPlaybackTracking() {
   if (autoScrollInterval) {
@@ -2479,7 +2471,6 @@ async function playbackTrackingTick() {
 
     const currentTime = result.response.currentTime || 0;
     highlightActiveEntry(currentTime);
-    highlightCurrentChatWord(currentTime * 1000);
   } catch (error) {
     // Silently ignore — YouTube tab might be closed or navigated away
   }
@@ -3084,12 +3075,10 @@ function setTranslatingSpinner(show) {
 }
 
 // ============================================================
-// CHAT — select subtitle words for AI analysis, or ask Gemini freely
+// CHAT — a per-video conversation with the AI provider
 //
-// This tab is ported from the Lingo project: a word-clickable subtitle box
-// feeds selections into a per-video Gemini conversation. It shares the
-// Transcript tab's transcript data and playback-tracking tick (see
-// playbackTrackingTick) rather than fetching or polling anything twice.
+// Ported from the Lingo project. The tab is just the conversation window;
+// the transcript itself lives in the Transcript tab.
 // ============================================================
 
 function setupChatEventListeners() {
@@ -3105,70 +3094,6 @@ function setupChatEventListeners() {
   document
     .getElementById("chatExportBtn")
     ?.addEventListener("click", exportChatSessions);
-  document
-    .getElementById("chatSubtitleBox")
-    ?.addEventListener("mouseup", handleChatSubtitleSelection);
-
-  initChatResizeHandle();
-}
-
-/**
- * Lets the user drag the handle between the subtitle box and the chat
- * window to resize their split, and remembers the chosen height across
- * sessions (a per-viewer convenience, so localStorage is fine here).
- */
-function initChatResizeHandle() {
-  const resizeHandle = document.getElementById("chatResizeHandle");
-  const subtitleBox = document.getElementById("chatSubtitleBox");
-  const chatTab = document.querySelector(".chat-tab");
-  if (!resizeHandle || !subtitleBox || !chatTab) return;
-
-  const CHAT_HEIGHT_STORAGE_KEY = "dw_chat_sub_box_height";
-  let isDragging = false;
-  let startY = 0;
-  let startHeight = 0;
-
-  const applyHeightPercent = (percent) => {
-    subtitleBox.style.flex = `0 0 ${percent}%`;
-  };
-
-  try {
-    const saved = parseFloat(localStorage.getItem(CHAT_HEIGHT_STORAGE_KEY));
-    if (saved >= 10 && saved <= 90) applyHeightPercent(saved);
-  } catch (_error) {
-    // No persisted height available — the CSS default still applies.
-  }
-
-  resizeHandle.addEventListener("mousedown", (event) => {
-    isDragging = true;
-    startY = event.clientY;
-    startHeight = subtitleBox.offsetHeight;
-    document.body.style.cursor = "ns-resize";
-    document.body.style.userSelect = "none";
-    event.preventDefault();
-  });
-
-  document.addEventListener("mousemove", (event) => {
-    if (!isDragging) return;
-    const deltaY = event.clientY - startY;
-    const totalHeight = chatTab.offsetHeight;
-    if (!totalHeight) return;
-    const percent = ((startHeight + deltaY) / totalHeight) * 100;
-    if (percent >= 10 && percent <= 90) applyHeightPercent(percent);
-  });
-
-  document.addEventListener("mouseup", () => {
-    if (!isDragging) return;
-    isDragging = false;
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-    try {
-      const percent = (subtitleBox.offsetHeight / chatTab.offsetHeight) * 100;
-      localStorage.setItem(CHAT_HEIGHT_STORAGE_KEY, String(percent));
-    } catch (_error) {
-      // Not fatal — the split just won't be remembered next time.
-    }
-  });
 }
 
 /**
@@ -3179,17 +3104,11 @@ function initChatResizeHandle() {
  */
 function resetChatTabForNewVideo() {
   currentChatSession = null;
-  chatSubtitleEntries = [];
 
-  const subtitleBox = document.getElementById("chatSubtitleBox");
-  if (subtitleBox) {
-    subtitleBox.innerHTML =
-      '<p class="chat-placeholder">The transcript will appear here once it loads. Select a word or phrase to ask Gemini about it.</p>';
-  }
   const messages = document.getElementById("chatMessages");
   if (messages) {
     messages.innerHTML =
-      '<p class="chat-placeholder">Select text above to analyze it, or type a question below.</p>';
+      '<p class="chat-placeholder">Type a question below to chat about this video.</p>';
   }
 }
 
@@ -3218,7 +3137,7 @@ async function maybeShowChatKeyHint() {
       placeholder.textContent.includes("Add your Gemini API key")
     ) {
       placeholder.textContent =
-        "Select text above to analyze it, or type a question below.";
+        "Type a question below to chat about this video.";
     }
   } catch (_error) {
     // Leave whatever placeholder is already showing.
@@ -3230,145 +3149,6 @@ function formatSecondsAsTimestamp(totalSeconds) {
   const minutes = Math.floor(seconds / 60);
   const remainder = seconds % 60;
   return `${minutes}:${String(remainder).padStart(2, "0")}`;
-}
-
-/**
- * Renders the transcript into the Chat tab's word-clickable subtitle box.
- * Each word is its own clickable span carrying an absolute timestamp in
- * milliseconds — the transcript adapter (transcript/youtube.js) attaches
- * per-word `segs` when the site provides them; videos or sites without
- * that detail fall back to one clickable "word" per caption line.
- */
-function renderChatSubtitles() {
-  const subtitleBox = document.getElementById("chatSubtitleBox");
-  if (!subtitleBox || !Array.isArray(currentTranscript)) return;
-
-  chatSubtitleEntries = [];
-  subtitleBox.innerHTML = "";
-
-  for (const entry of currentTranscript) {
-    const line = document.createElement("div");
-    line.className = "chat-subtitle-line";
-
-    const timeDiv = document.createElement("div");
-    timeDiv.className = "chat-subtitle-time";
-    timeDiv.textContent = formatSecondsAsTimestamp(entry.start);
-
-    const textDiv = document.createElement("div");
-    textDiv.className = "chat-subtitle-text";
-
-    const words =
-      Array.isArray(entry.segs) && entry.segs.length
-        ? entry.segs
-        : [{ text: entry.text, offsetMs: 0 }];
-
-    for (const seg of words) {
-      const text = seg.text || "";
-      if (!text) continue;
-      if (/^\s+$/.test(text)) {
-        textDiv.appendChild(document.createTextNode(text));
-        continue;
-      }
-      const timeMs = entry.start * 1000 + (seg.offsetMs || 0);
-      const wordSpan = document.createElement("span");
-      wordSpan.className = "chat-subtitle-word";
-      wordSpan.textContent = text;
-      wordSpan.dataset.timeMs = String(timeMs);
-      wordSpan.addEventListener("click", handleChatWordClick);
-      textDiv.appendChild(wordSpan);
-      chatSubtitleEntries.push({ element: wordSpan, timeMs });
-    }
-
-    line.appendChild(timeDiv);
-    line.appendChild(textDiv);
-    subtitleBox.appendChild(line);
-  }
-}
-
-/**
- * Jumps the video to the clicked word's timestamp. Reuses the same seekTo()
- * helper the Transcript tab and Notes use (see TIMESTAMP / SEEK above).
- */
-function handleChatWordClick(event) {
-  const timeMs = Number(event.currentTarget.dataset.timeMs);
-  if (!Number.isFinite(timeMs)) return;
-  seekTo(timeMs / 1000);
-}
-
-/**
- * Highlights the word matching the current playback time and scrolls it
- * into view. Called from the shared playback-tracking tick, so it stays in
- * sync with the Transcript tab at no extra polling cost.
- */
-function highlightCurrentChatWord(currentTimeMs) {
-  if (!chatSubtitleEntries.length) return;
-
-  let current = null;
-  for (const entry of chatSubtitleEntries) {
-    if (entry.timeMs <= currentTimeMs) {
-      current = entry;
-    } else {
-      break;
-    }
-  }
-
-  for (const entry of chatSubtitleEntries) {
-    entry.element.classList.toggle("current-word", entry === current);
-  }
-
-  if (current) {
-    current.element
-      .closest(".chat-subtitle-line")
-      ?.scrollIntoView({ block: "nearest" });
-  }
-}
-
-/**
- * Restricts a selection inside the chat subtitle box to whole words, and
- * pre-fills the chat input with an analysis prompt for the user to review
- * (or edit) before sending — mirrors the Lingo project's original
- * selection behavior, generalized beyond a single language.
- */
-function handleChatSubtitleSelection() {
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) return;
-  const selectedText = selection.toString().trim();
-  if (!selectedText) return;
-
-  const range = selection.getRangeAt(0);
-  const subtitleBox = document.getElementById("chatSubtitleBox");
-  if (!subtitleBox || !range.intersectsNode(subtitleBox)) return;
-
-  const allWords = Array.from(
-    subtitleBox.querySelectorAll(".chat-subtitle-word"),
-  );
-  const selectedWords = allWords.filter((word) => range.intersectsNode(word));
-  if (!selectedWords.length) return;
-
-  const completeText = selectedWords
-    .map((word) => word.textContent)
-    .join(" ");
-
-  const firstIndex = allWords.indexOf(selectedWords[0]);
-  const lastIndex = allWords.indexOf(selectedWords[selectedWords.length - 1]);
-  const contextWords = allWords.slice(
-    Math.max(0, firstIndex - 8),
-    Math.min(allWords.length, lastIndex + 9),
-  );
-  const contextText = contextWords.map((word) => word.textContent).join(" ");
-
-  initNewChatSession(completeText);
-
-  const input = document.getElementById("chatInput");
-  if (input) {
-    input.value =
-      contextText && contextText !== completeText
-        ? `Explain "${completeText}" in context: "${contextText}"`
-        : `Explain "${completeText}"`;
-    input.focus();
-  }
-
-  selection.removeAllRanges();
 }
 
 /**
@@ -3531,7 +3311,7 @@ async function exportChatSessions() {
 
 // Pure helpers are exposed for the repository's Node tests. The extension does
 // not read this object at runtime.
-globalThis.__YTD_TRANSCRIPT_TESTING__ = {
+globalThis.__DW_TRANSCRIPT_TESTING__ = {
   sendTranslationMessage,
   groupTranscriptEntries,
   splitOversizedThought,

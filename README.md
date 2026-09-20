@@ -7,8 +7,8 @@ Turn every video into a resource for deep learning. DeepWatch brings transcripts
 - Turn captions into a readable, searchable learning resource, fetched free and directly from the video's own page (no third-party transcript service, no transcript API key).
 - Learn languages with the original transcript, a Simplified Chinese translation, or an aligned bilingual view.
 - Build understanding with an AI overview, chapters, key quotes, and selected-text explanations.
-- Ask a video-aware chat about anything you select in the transcript, or ask it freely, with word-level click-to-seek and live highlighting as the video plays.
-- Navigate long videos by clicking timestamps in the transcript, overview, notes, or chat subtitle view.
+- Ask a video-aware chat anything about the video.
+- Navigate long videos by clicking timestamps in the transcript, overview, or notes.
 - Save polished timestamped notes for later study, and export your chat history per video.
 - Keep control of your data with your own API key for whichever AI provider you choose, local Chrome storage, and no analytics or telemetry.
 
@@ -72,12 +72,12 @@ Keys and settings are stored in Chrome's local extension storage on your device.
 ## Use DeepWatch
 
 1. Open a standard video page with captions.
-2. Click the DeepWatch extension icon, or the **Digest** button next to the video's own Share/Save buttons, to open the side panel.
+2. Click the DeepWatch extension icon, or the **DeepWatch** button next to the video's own Share/Save buttons, to open the side panel.
 3. Read the timestamped transcript, or choose **Original**, **中文**, or **双语**.
 4. Open **Overview** when you want AI-generated chapters and key quotes.
 5. Select transcript text when you want an AI explanation.
 6. Move your mouse over the video and click **Note**, or press **n** while the video is focused, to save a timestamped note; revisit it from **Notes**.
-7. Open **Chat** to select a word or phrase from the transcript for a quick explanation, or ask it anything about the video freely. Click any word to jump the video there, and watch the current word highlight as it plays. Export your conversation as JSON from the Chat tab when you want to keep it.
+7. Open **Chat** to ask anything about the video. Export your conversation as JSON from the Chat tab when you want to keep it.
 
 ## What works today
 
@@ -86,7 +86,7 @@ Keys and settings are stored in Chrome's local extension storage on your device.
 - Native subtitle tracks already listed by the video player. DeepWatch prefers English when available, but may show another native language.
 - Original, Simplified Chinese, and aligned bilingual transcript views.
 - AI overviews, selected-text explanations, translation, automatic note polishing, and video-aware chat.
-- Local notes, local chat history per video, and a local cache for recent transcript and digest results.
+- Local notes, local chat history per video, and a local cache for recent transcript and overview results.
 - Your choice of AI provider (Gemini, OpenAI, Anthropic, DeepSeek, OpenRouter, Ollama, or a custom endpoint) for all AI features, with the model configurable in Settings.
 
 Shorts, live streams, private or access-restricted videos, and videos without an available native transcript may not work. Firefox, Safari, mobile browsers, and other Chromium browsers are not currently tested or supported.
@@ -126,7 +126,7 @@ This fork changes several things:
 
 - Transcript fetching no longer uses the Supadata API; it reads the transcript directly from the video's own page instead, at no cost and with no transcript API key (see `transcript/youtube.js`).
 - The AI provider is no longer fixed to one service. Settings now offers Gemini (the default), OpenAI, Anthropic Claude, DeepSeek, OpenRouter, a local Ollama server, or a custom endpoint, each with its own request/response handling in `background.js`.
-- A Chat tab was added: a word-clickable subtitle view with click-to-seek and live highlighting, a per-video conversation, and JSON export.
+- A Chat tab was added: a per-video conversation with JSON export.
 - Notes gained an editable, clearly-marked space for your own writing underneath the (unchanged) transcript excerpt, grouping by video, a one-click Markdown export, and a standalone full-page view (`notes.html`).
 - An API key of any kind is optional, not a precondition: Transcript and Notes work fully without one.
 
@@ -145,7 +145,7 @@ There is no DeepWatch account system, advertising, analytics, or telemetry. Your
 
 ## Troubleshooting
 
-### The Digest button is missing on a video
+### The DeepWatch button is missing on a video
 
 - At `chrome://extensions`, find DeepWatch and click **Reload**, then refresh the video tab.
 - Confirm that you are on a standard `https://www.youtube.com/watch?...` page, not a Short, embed, or live page.

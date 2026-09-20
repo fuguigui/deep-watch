@@ -1,4 +1,4 @@
-const YTD_OPTIONS = (() => {
+const DW_OPTIONS = (() => {
   const LANGUAGE_STORAGE_KEY = "dw_options_language";
   const PREVIEW_STORAGE_PREFIX = "deepWatchPreview:";
   const SUPPORTED_LANGUAGES = new Set(["en", "zh-CN"]);
@@ -62,8 +62,8 @@ const YTD_OPTIONS = (() => {
       copyCustomizationPrompt: "Copy edited prompt",
       localData: "Local data",
       localDataHelp:
-        "Digests, translations, notes, and chat history are stored only in this Chrome profile. You can remove them at any time.",
-      clearCache: "Clear cached digests",
+        "Cached results, translations, notes, and chat history are stored only in this Chrome profile. You can remove them at any time.",
+      clearCache: "Clear cached results",
       deleteNotes: "Delete all notes",
       resetData: "Reset extension data",
       footer:
@@ -75,11 +75,11 @@ const YTD_OPTIONS = (() => {
       promptCopied: "Edited prompt copied.",
       copyFailed:
         "Could not copy the prompt. Select the prompt text and copy it manually.",
-      clearedDigests: ({ count }) =>
-        `Cleared ${count} cached digest${count === 1 ? "" : "s"}.`,
+      clearedCache: ({ count }) =>
+        `Cleared ${count} cached result${count === 1 ? "" : "s"}.`,
       notesDeleted: "Deleted all saved notes.",
       resetConfirm:
-        "Delete the API key, cached digests, translations, saved notes, and chat history from this Chrome profile?",
+        "Delete the API key, cached results, translations, saved notes, and chat history from this Chrome profile?",
       allDataDeleted: "All DeepWatch data was deleted.",
       settingsLoadFailed:
         "Could not load saved settings. You can still preview this page.",
@@ -129,8 +129,8 @@ const YTD_OPTIONS = (() => {
       copyCustomizationPrompt: "复制编辑后的提示词",
       localData: "本地数据",
       localDataHelp:
-        "摘要、翻译、笔记和聊天记录仅保存在当前 Chrome 个人资料中。你可以随时删除。",
-      clearCache: "清除缓存的摘要",
+        "缓存结果、翻译、笔记和聊天记录仅保存在当前 Chrome 个人资料中。你可以随时删除。",
+      clearCache: "清除缓存的结果",
       deleteNotes: "删除全部笔记",
       resetData: "重置扩展数据",
       footer:
@@ -141,10 +141,10 @@ const YTD_OPTIONS = (() => {
       copying: "正在复制…",
       promptCopied: "已复制编辑后的提示词。",
       copyFailed: "无法复制提示词。请选中提示词文本并手动复制。",
-      clearedDigests: ({ count }) => `已清除 ${count} 条缓存摘要。`,
+      clearedCache: ({ count }) => `已清除 ${count} 条缓存结果。`,
       notesDeleted: "已删除全部已保存的笔记。",
       resetConfirm:
-        "要从当前 Chrome 个人资料中删除 API 密钥、缓存摘要、翻译、已保存的笔记和聊天记录吗？",
+        "要从当前 Chrome 个人资料中删除 API 密钥、缓存结果、翻译、已保存的笔记和聊天记录吗？",
       allDataDeleted: "已删除全部 DeepWatch 数据。",
       settingsLoadFailed: "无法加载已保存的设置，但你仍可预览此页面。",
     },
@@ -349,7 +349,7 @@ const YTD_OPTIONS = (() => {
 
   function initialize(root = globalThis) {
     const doc = root.document;
-    const settingsApi = root.YTD_SETTINGS;
+    const settingsApi = root.DW_SETTINGS;
     if (!doc || !settingsApi) return;
 
     const storage = createStorageAdapter(
@@ -572,15 +572,15 @@ const YTD_OPTIONS = (() => {
       }
     }
 
-    async function clearCachedDigests() {
+    async function clearCachedResults() {
       const all = await storage.get(null);
-      const keys = Object.keys(all).filter((key) => key.startsWith("digest_"));
+      const keys = Object.keys(all).filter((key) => key.startsWith("video_cache_"));
       if (keys.length) await storage.remove(keys);
-      setStatus(dataStatus, "clearedDigests", { count: keys.length });
+      setStatus(dataStatus, "clearedCache", { count: keys.length });
     }
 
     async function clearNotes() {
-      await storage.remove("ytd_notes");
+      await storage.remove("dw_notes");
       setStatus(dataStatus, "notesDeleted");
     }
 
@@ -604,7 +604,7 @@ const YTD_OPTIONS = (() => {
     );
     doc
       .getElementById("clearCacheBtn")
-      .addEventListener("click", clearCachedDigests);
+      .addEventListener("click", clearCachedResults);
     doc.getElementById("clearNotesBtn").addEventListener("click", clearNotes);
     doc.getElementById("resetBtn").addEventListener("click", resetAllData);
     for (const button of languageButtons) {
@@ -640,9 +640,9 @@ const YTD_OPTIONS = (() => {
 })();
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = YTD_OPTIONS;
+  module.exports = DW_OPTIONS;
 }
 
 if (typeof document !== "undefined") {
-  YTD_OPTIONS.initialize();
+  DW_OPTIONS.initialize();
 }

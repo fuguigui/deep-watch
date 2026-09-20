@@ -47,11 +47,11 @@ function loadSearchHelper() {
       windows: { getCurrent: () => Promise.resolve({ id: 1 }) },
       tabs: { onUpdated: listeners, onActivated: listeners },
     },
-    YTD_SETTINGS: {},
+    DW_SETTINGS: {},
   };
   sandbox.globalThis = sandbox;
   vm.runInNewContext(read("sidepanel.js"), sandbox);
-  return sandbox.__YTD_TRANSCRIPT_TESTING__.findLiteralTranscriptMatches;
+  return sandbox.__DW_TRANSCRIPT_TESTING__.findLiteralTranscriptMatches;
 }
 
 test("transcript search finds every literal match without case sensitivity", () => {

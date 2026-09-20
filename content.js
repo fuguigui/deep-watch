@@ -7,7 +7,7 @@
  * It handles:
  * 1. Extracting video info (title, channel name) from the page
  * 2. Injecting "key moment" markers onto YouTube's progress bar
- * 3. Adding a "Digest" button to YouTube's action bar (next to Share/Save)
+ * 3. Adding a "DeepWatch" button to YouTube's action bar (next to Share/Save)
  *
  * Think of it like a robot sitting inside the YouTube tab,
  * reading the page and making small visual changes.
@@ -22,38 +22,38 @@ const debugLog = (...args) => {
 // GLOBAL STATE
 // ============================================================
 
-let ytdNoteButton = null;
-let ytdNoteButtonTimer = null;
-let ytdNoteKeyboardListenerAdded = false;
-let ytdNoteButtonRetryTimer = null;
-let ytdDigestButton = null;
-let digestButtonObserver = null;
-let digestButtonReconcileTimer = null;
-let digestButtonResizeListenerAdded = false;
+let deepWatchNoteButton = null;
+let deepWatchNoteButtonTimer = null;
+let deepWatchNoteKeyboardListenerAdded = false;
+let deepWatchNoteButtonRetryTimer = null;
+let deepWatchButton = null;
+let deepWatchButtonObserver = null;
+let deepWatchButtonReconcileTimer = null;
+let deepWatchButtonResizeListenerAdded = false;
 
 // ============================================================
 // INITIALIZATION
 // ============================================================
 
 /**
- * When the page loads, inject our Digest button and Note button.
+ * When the page loads, inject our DeepWatch button and Note button.
  * We wait a bit for YouTube's UI to fully render.
  */
 function init() {
   // Register the global "n" keyboard shortcut once
-  if (!ytdNoteKeyboardListenerAdded) {
+  if (!deepWatchNoteKeyboardListenerAdded) {
     document.addEventListener("keydown", handleNoteKeyboardShortcut);
-    ytdNoteKeyboardListenerAdded = true;
+    deepWatchNoteKeyboardListenerAdded = true;
   }
 
   // Try to inject the buttons immediately
-  injectDigestButton();
+  injectDeepWatchButton();
   tryInjectNoteButton();
 
   // Also set up an observer to handle YouTube's dynamic content loading
   // (YouTube is an SPA, so elements appear/disappear as you navigate)
   setupButtonObserver();
-  setupDigestButtonResizeListener();
+  setupDeepWatchButtonResizeListener();
 }
 
 /**
@@ -65,9 +65,9 @@ function tryInjectNoteButton() {
   if (!window.location.pathname.includes("/watch")) return;
 
   // Clear any existing retry so we don't stack timers
-  if (ytdNoteButtonRetryTimer) {
-    clearInterval(ytdNoteButtonRetryTimer);
-    ytdNoteButtonRetryTimer = null;
+  if (deepWatchNoteButtonRetryTimer) {
+    clearInterval(deepWatchNoteButtonRetryTimer);
+    deepWatchNoteButtonRetryTimer = null;
   }
 
   let attempts = 0;
@@ -81,9 +81,9 @@ function tryInjectNoteButton() {
 
     if (playerContainer) {
       injectNoteButton();
-      if (ytdNoteButtonRetryTimer) {
-        clearInterval(ytdNoteButtonRetryTimer);
-        ytdNoteButtonRetryTimer = null;
+      if (deepWatchNoteButtonRetryTimer) {
+        clearInterval(deepWatchNoteButtonRetryTimer);
+        deepWatchNoteButtonRetryTimer = null;
       }
       return;
     }
@@ -92,16 +92,16 @@ function tryInjectNoteButton() {
       debugLog(
         "[DeepWatch Content] Player container not found after retries, giving up",
       );
-      if (ytdNoteButtonRetryTimer) {
-        clearInterval(ytdNoteButtonRetryTimer);
-        ytdNoteButtonRetryTimer = null;
+      if (deepWatchNoteButtonRetryTimer) {
+        clearInterval(deepWatchNoteButtonRetryTimer);
+        deepWatchNoteButtonRetryTimer = null;
       }
     }
   }
 
   attempt();
-  if (!ytdNoteButton || !ytdNoteButton.isConnected) {
-    ytdNoteButtonRetryTimer = setInterval(attempt, 100);
+  if (!deepWatchNoteButton || !deepWatchNoteButton.isConnected) {
+    deepWatchNoteButtonRetryTimer = setInterval(attempt, 100);
   }
 }
 
@@ -170,16 +170,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 // ============================================================
-// DIGEST BUTTON INJECTION
+// DEEPWATCH BUTTON INJECTION
 // ============================================================
 
 /**
- * Injects a "Digest" button into YouTube's action bar.
+ * Injects a "DeepWatch" button into YouTube's action bar.
  * The button appears next to Share, Save, etc. below the video.
  *
  * When clicked, it opens the DeepWatch side panel.
  */
-function isVisibleDigestHost(element) {
+function isVisibleDeepWatchHost(element) {
   if (!element || !element.isConnected) return false;
 
   const rect = element.getBoundingClientRect();
@@ -195,17 +195,17 @@ function isVisibleDigestHost(element) {
  * viewer can actually see, so inspect every candidate and resolve the native
  * button group inside the visible action row for the current video.
  */
-function findDigestButtonHost() {
+function findDeepWatchButtonHost() {
   const primaryActionRows = Array.from(
     document.querySelectorAll("ytd-watch-metadata #actions-inner"),
   );
 
   for (const actionRow of primaryActionRows) {
-    if (!isVisibleDigestHost(actionRow)) continue;
+    if (!isVisibleDeepWatchHost(actionRow)) continue;
 
     const visibleButtonGroup = Array.from(
       actionRow.querySelectorAll("#top-level-buttons-computed"),
-    ).find(isVisibleDigestHost);
+    ).find(isVisibleDeepWatchHost);
     if (visibleButtonGroup) return visibleButtonGroup;
   }
 
@@ -220,23 +220,23 @@ function findDigestButtonHost() {
   return (
     fallbackCandidates.find(
       (candidate) =>
-        isVisibleDigestHost(candidate) &&
+        isVisibleDeepWatchHost(candidate) &&
         (candidate.closest("ytd-watch-metadata") ||
           candidate.closest("#primary")),
     ) || null
   );
 }
 
-function createDigestButton() {
-  const digestButton = document.createElement("button");
-  digestButton.id = "ytd-digest-button";
-  digestButton.type = "button";
-  digestButton.setAttribute("aria-label", "Open DeepWatch");
-  digestButton.innerHTML = `<span class="ytd-digest-label">Digest</span>`;
+function createDeepWatchButton() {
+  const watchButton = document.createElement("button");
+  watchButton.id = "deep-watch-button";
+  watchButton.type = "button";
+  watchButton.setAttribute("aria-label", "Open DeepWatch");
+  watchButton.innerHTML = `<span class="deep-watch-label">DeepWatch</span>`;
 
   // Style the button — rounded pill in our terracotta accent, sized to sit
   // comfortably among YouTube's native action buttons.
-  digestButton.style.cssText = `
+  watchButton.style.cssText = `
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -261,22 +261,22 @@ function createDigestButton() {
   `;
 
   // Hover effects
-  digestButton.addEventListener("mouseenter", () => {
-    digestButton.style.background = "#cc0000";
-    digestButton.style.transform = "scale(1.02)";
+  watchButton.addEventListener("mouseenter", () => {
+    watchButton.style.background = "#cc0000";
+    watchButton.style.transform = "scale(1.02)";
   });
 
-  digestButton.addEventListener("mouseleave", () => {
-    digestButton.style.background = "#ff0000";
-    digestButton.style.transform = "scale(1)";
+  watchButton.addEventListener("mouseleave", () => {
+    watchButton.style.background = "#ff0000";
+    watchButton.style.transform = "scale(1)";
   });
 
   // Click handler — open the side panel
-  digestButton.addEventListener("click", async (e) => {
+  watchButton.addEventListener("click", async (e) => {
     e.preventDefault();
     e.stopPropagation();
 
-    debugLog("[DeepWatch] Digest button clicked");
+    debugLog("[DeepWatch] Button clicked");
 
     // Send message to background script to open side panel
     try {
@@ -300,76 +300,76 @@ function createDigestButton() {
     }
   });
 
-  ytdDigestButton = digestButton;
-  return digestButton;
+  deepWatchButton = watchButton;
+  return watchButton;
 }
 
 /**
- * Reconciles the Digest button with YouTube's currently visible action row.
+ * Reconciles the DeepWatch button with YouTube's currently visible action row.
  * This is intentionally idempotent because YouTube rebuilds its watch page
  * during navigation and at responsive breakpoints.
  */
-function injectDigestButton() {
+function injectDeepWatchButton() {
   const existingButtons = Array.from(
-    document.querySelectorAll("#ytd-digest-button"),
+    document.querySelectorAll("#deep-watch-button"),
   );
 
   if (!window.location.pathname.includes("/watch")) {
     existingButtons.forEach((button) => button.remove());
-    ytdDigestButton = null;
+    deepWatchButton = null;
     return false;
   }
 
-  const actionsContainer = findDigestButtonHost();
+  const actionsContainer = findDeepWatchButtonHost();
   if (!actionsContainer) {
     debugLog("[DeepWatch Content] Visible actions container not found yet");
     return false;
   }
 
-  let digestButton = existingButtons.find(
-    (button) => button === ytdDigestButton,
+  let watchButton = existingButtons.find(
+    (button) => button === deepWatchButton,
   );
 
-  if (!digestButton) {
+  if (!watchButton) {
     existingButtons.forEach((button) => button.remove());
     existingButtons.length = 0;
-    digestButton = createDigestButton();
+    watchButton = createDeepWatchButton();
   }
 
   existingButtons.forEach((button) => {
-    if (button !== digestButton) button.remove();
+    if (button !== watchButton) button.remove();
   });
 
-  if (digestButton.parentElement !== actionsContainer) {
+  if (watchButton.parentElement !== actionsContainer) {
     // YouTube turns #actions-inner into a vertical flex column at narrow
     // breakpoints. A direct child there stretches into a full-width second
-    // row, so keep Digest inside the native horizontal button group and
+    // row, so keep DeepWatch inside the native horizontal button group and
     // prepend it to preserve visibility when space is limited.
-    actionsContainer.insertBefore(digestButton, actionsContainer.firstChild);
+    actionsContainer.insertBefore(watchButton, actionsContainer.firstChild);
   }
 
-  debugLog("[DeepWatch Content] Digest button reconciled");
+  debugLog("[DeepWatch Content] Button reconciled");
   return true;
 }
 
-function scheduleDigestButtonReconciliation(delay = 80) {
-  if (digestButtonReconcileTimer) {
-    clearTimeout(digestButtonReconcileTimer);
+function scheduleDeepWatchButtonReconciliation(delay = 80) {
+  if (deepWatchButtonReconcileTimer) {
+    clearTimeout(deepWatchButtonReconcileTimer);
   }
 
-  digestButtonReconcileTimer = setTimeout(() => {
-    digestButtonReconcileTimer = null;
-    injectDigestButton();
+  deepWatchButtonReconcileTimer = setTimeout(() => {
+    deepWatchButtonReconcileTimer = null;
+    injectDeepWatchButton();
   }, delay);
 }
 
-function setupDigestButtonResizeListener() {
-  if (digestButtonResizeListenerAdded) return;
+function setupDeepWatchButtonResizeListener() {
+  if (deepWatchButtonResizeListenerAdded) return;
 
   window.addEventListener("resize", () => {
-    scheduleDigestButtonReconciliation(120);
+    scheduleDeepWatchButtonReconciliation(120);
   });
-  digestButtonResizeListenerAdded = true;
+  deepWatchButtonResizeListenerAdded = true;
 }
 
 /**
@@ -377,20 +377,20 @@ function setupDigestButtonResizeListener() {
  * When the action buttons container appears (after navigation), we inject our button.
  */
 function setupButtonObserver() {
-  if (digestButtonObserver) return;
+  if (deepWatchButtonObserver) return;
 
-  digestButtonObserver = new MutationObserver(() => {
+  deepWatchButtonObserver = new MutationObserver(() => {
     // Check if we need to inject the buttons
     if (window.location.pathname.includes("/watch")) {
-      scheduleDigestButtonReconciliation();
-      if (!ytdNoteButton || !ytdNoteButton.isConnected) {
+      scheduleDeepWatchButtonReconciliation();
+      if (!deepWatchNoteButton || !deepWatchNoteButton.isConnected) {
         tryInjectNoteButton();
       }
     }
   });
 
   // Watch the entire body for changes (YouTube rebuilds large chunks of the DOM)
-  digestButtonObserver.observe(document.body, {
+  deepWatchButtonObserver.observe(document.body, {
     childList: true,
     subtree: true,
   });
@@ -412,9 +412,9 @@ function injectNoteButton() {
   // Don't inject if button already exists and is properly tracked.
   // If a stale button exists (e.g., from a previous content-script instance),
   // remove it and re-inject so event listeners are attached to the live one.
-  const existingButton = document.getElementById("ytd-note-button");
+  const existingButton = document.getElementById("deep-watch-note-button");
   if (existingButton) {
-    if (ytdNoteButton === existingButton && existingButton.isConnected) {
+    if (deepWatchNoteButton === existingButton && existingButton.isConnected) {
       return; // already injected and connected
     }
     existingButton.remove();
@@ -447,7 +447,7 @@ function injectNoteButton() {
 
   // Create the note button — a soft rounded pill that floats over the player
   const noteButton = document.createElement("button");
-  noteButton.id = "ytd-note-button";
+  noteButton.id = "deep-watch-note-button";
   noteButton.innerHTML = `
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right: 7px;">
       <path d="M12 20h9"></path>
@@ -481,7 +481,7 @@ function injectNoteButton() {
     box-shadow: 0 4px 14px rgba(0,0,0,0.3);
   `;
 
-  ytdNoteButton = noteButton;
+  deepWatchNoteButton = noteButton;
 
   // Show button when mouse enters or moves over the player.
   // Hide after 2 seconds of idle or when the mouse leaves.
@@ -496,8 +496,8 @@ function injectNoteButton() {
   });
 
   playerContainer.addEventListener("mouseleave", () => {
-    clearTimeout(ytdNoteButtonTimer);
-    ytdNoteButtonTimer = null;
+    clearTimeout(deepWatchNoteButtonTimer);
+    deepWatchNoteButtonTimer = null;
     hideNoteButton();
   });
 
@@ -527,20 +527,20 @@ function injectNoteButton() {
 }
 
 function showNoteButton() {
-  if (!ytdNoteButton) return;
-  ytdNoteButton.style.opacity = "1";
-  ytdNoteButton.style.pointerEvents = "auto";
+  if (!deepWatchNoteButton) return;
+  deepWatchNoteButton.style.opacity = "1";
+  deepWatchNoteButton.style.pointerEvents = "auto";
 }
 
 function hideNoteButton() {
-  if (!ytdNoteButton) return;
-  ytdNoteButton.style.opacity = "0";
-  ytdNoteButton.style.pointerEvents = "none";
+  if (!deepWatchNoteButton) return;
+  deepWatchNoteButton.style.opacity = "0";
+  deepWatchNoteButton.style.pointerEvents = "none";
 }
 
 function resetNoteButtonTimer() {
-  clearTimeout(ytdNoteButtonTimer);
-  ytdNoteButtonTimer = setTimeout(() => {
+  clearTimeout(deepWatchNoteButtonTimer);
+  deepWatchNoteButtonTimer = setTimeout(() => {
     hideNoteButton();
   }, 2000);
 }
@@ -592,7 +592,7 @@ async function saveCurrentNote() {
   const videoInfo = extractVideoInfo();
   const videoId = new URLSearchParams(window.location.search).get("v");
 
-  const noteButton = ytdNoteButton;
+  const noteButton = deepWatchNoteButton;
   const originalContent = noteButton ? noteButton.innerHTML : "";
 
   if (noteButton) {
@@ -645,11 +645,11 @@ async function saveCurrentNote() {
  * Injects the shared toast slide-in animation once per page.
  */
 function ensureToastAnimationStyles() {
-  if (document.getElementById("ytd-toast-animation-style")) return;
+  if (document.getElementById("deep-watch-toast-animation-style")) return;
   const style = document.createElement("style");
-  style.id = "ytd-toast-animation-style";
+  style.id = "deep-watch-toast-animation-style";
   style.textContent = `
-    @keyframes ytdSlideIn {
+    @keyframes deepWatchSlideIn {
       from { transform: translateX(100%); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
     }
@@ -664,11 +664,11 @@ function ensureToastAnimationStyles() {
 function showErrorToast(message) {
   ensureToastAnimationStyles();
 
-  const existing = document.getElementById("ytd-error-toast");
+  const existing = document.getElementById("deep-watch-error-toast");
   if (existing) existing.remove();
 
   const toast = document.createElement("div");
-  toast.id = "ytd-error-toast";
+  toast.id = "deep-watch-error-toast";
   toast.textContent = message;
   toast.style.cssText = `
     position: fixed;
@@ -686,13 +686,13 @@ function showErrorToast(message) {
     font-size: 13px;
     line-height: 1.5;
     color: #2e2a24;
-    animation: ytdSlideIn 0.3s ease;
+    animation: deepWatchSlideIn 0.3s ease;
   `;
 
   document.body.appendChild(toast);
 
   setTimeout(() => {
-    toast.style.animation = "ytdSlideIn 0.3s ease reverse";
+    toast.style.animation = "deepWatchSlideIn 0.3s ease reverse";
     setTimeout(() => toast.remove(), 300);
   }, 5000);
 }
@@ -704,11 +704,11 @@ function showNoteSavedToast(note) {
   ensureToastAnimationStyles();
 
   // Remove existing toast
-  const existing = document.getElementById("ytd-note-toast");
+  const existing = document.getElementById("deep-watch-note-toast");
   if (existing) existing.remove();
 
   const toast = document.createElement("div");
-  toast.id = "ytd-note-toast";
+  toast.id = "deep-watch-note-toast";
   toast.innerHTML = `
     <div style="font-weight: 700; margin-bottom: 6px; color: #ff0000;">Note saved</div>
     <div style="font-size: 12px; color: #6b6258; margin-bottom: 8px;">${escapeHtmlForContent(note.timestamp)} — ${escapeHtmlForContent(note.videoTitle)}</div>
@@ -730,7 +730,7 @@ function showNoteSavedToast(note) {
     max-width: 350px;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
     font-family: system-ui, -apple-system, "Roboto", sans-serif;
-    animation: ytdSlideIn 0.3s ease;
+    animation: deepWatchSlideIn 0.3s ease;
   `;
 
   // Copy link handler
@@ -748,7 +748,7 @@ function showNoteSavedToast(note) {
 
   // Auto-dismiss after 5 seconds
   setTimeout(() => {
-    toast.style.animation = "ytdSlideIn 0.3s ease reverse";
+    toast.style.animation = "deepWatchSlideIn 0.3s ease reverse";
     setTimeout(() => toast.remove(), 300);
   }, 5000);
 }
@@ -861,38 +861,38 @@ function escapeHtmlForContent(text) {
  */
 document.addEventListener("yt-navigate-finish", () => {
   // Clean up old key moment markers when navigating to a new video
-  const existingMarkers = document.querySelectorAll(".ytd-key-moment-markers");
+  const existingMarkers = document.querySelectorAll(".deep-watch-key-moment-markers");
   existingMarkers.forEach((m) => m.remove());
 
   // Remove old buttons (they will be re-injected for the new video)
   document
-    .querySelectorAll("#ytd-digest-button")
+    .querySelectorAll("#deep-watch-button")
     .forEach((button) => button.remove());
-  ytdDigestButton = null;
-  if (digestButtonReconcileTimer) {
-    clearTimeout(digestButtonReconcileTimer);
-    digestButtonReconcileTimer = null;
+  deepWatchButton = null;
+  if (deepWatchButtonReconcileTimer) {
+    clearTimeout(deepWatchButtonReconcileTimer);
+    deepWatchButtonReconcileTimer = null;
   }
 
-  const existingNoteButton = document.getElementById("ytd-note-button");
+  const existingNoteButton = document.getElementById("deep-watch-note-button");
   if (existingNoteButton) existingNoteButton.remove();
 
   // Reset note button state
-  ytdNoteButton = null;
-  clearTimeout(ytdNoteButtonTimer);
-  ytdNoteButtonTimer = null;
-  if (ytdNoteButtonRetryTimer) {
-    clearInterval(ytdNoteButtonRetryTimer);
-    ytdNoteButtonRetryTimer = null;
+  deepWatchNoteButton = null;
+  clearTimeout(deepWatchNoteButtonTimer);
+  deepWatchNoteButtonTimer = null;
+  if (deepWatchNoteButtonRetryTimer) {
+    clearInterval(deepWatchNoteButtonRetryTimer);
+    deepWatchNoteButtonRetryTimer = null;
   }
 
   // Remove any toasts
-  const existingToast = document.getElementById("ytd-note-toast");
+  const existingToast = document.getElementById("deep-watch-note-toast");
   if (existingToast) existingToast.remove();
 
   // Re-inject buttons for the new video (with a small delay for YouTube to render)
   setTimeout(() => {
-    scheduleDigestButtonReconciliation(0);
+    scheduleDeepWatchButtonReconciliation(0);
     tryInjectNoteButton();
   }, 500);
 });

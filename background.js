@@ -32,8 +32,8 @@ chrome.storage.local
   );
 
 async function getSettings() {
-  const stored = await chrome.storage.local.get(YTD_SETTINGS.STORAGE_KEY);
-  return YTD_SETTINGS.normalize(stored[YTD_SETTINGS.STORAGE_KEY]);
+  const stored = await chrome.storage.local.get(DW_SETTINGS.STORAGE_KEY);
+  return DW_SETTINGS.normalize(stored[DW_SETTINGS.STORAGE_KEY]);
 }
 
 const promptFileCache = new Map();
@@ -167,7 +167,7 @@ async function requestAiCompletion({
 
   let provider;
   try {
-    provider = YTD_SETTINGS.resolveProvider(settings);
+    provider = DW_SETTINGS.resolveProvider(settings);
   } catch (configError) {
     const error = new Error(configError.message);
     error.code = "INVALID_PROVIDER_CONFIG";
@@ -372,8 +372,46 @@ chrome.action.onClicked.addListener((tab) => {
  */
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
+/**
+ * Storage keys carried over from the extension this project was forked
+ * from. Saved notes and preferences are moved to their DeepWatch names so
+ * nothing the user already saved is lost; the cache prefix is renamed the
+ * same way. Safe to re-run: it only moves keys that still have the old name.
+ */
+const LEGACY_STORAGE_KEYS = {
+  ytd_notes: "dw_notes",
+  ytd_transcript_view_state: "dw_transcript_view_state",
+  ytd_display_language_modes_by_video: "dw_display_language_modes_by_video",
+};
+const LEGACY_CACHE_PREFIX = "digest_";
+const CACHE_PREFIX = "video_cache_";
+
+async function migrateLegacyStorage() {
+  try {
+    const all = await chrome.storage.local.get(null);
+    const moved = {};
+    const stale = [];
+    for (const [key, value] of Object.entries(all)) {
+      const legacyTarget = LEGACY_STORAGE_KEYS[key];
+      if (legacyTarget) {
+        if (all[legacyTarget] === undefined) moved[legacyTarget] = value;
+        stale.push(key);
+      } else if (key.startsWith(LEGACY_CACHE_PREFIX)) {
+        const renamed = CACHE_PREFIX + key.slice(LEGACY_CACHE_PREFIX.length);
+        if (all[renamed] === undefined) moved[renamed] = value;
+        stale.push(key);
+      }
+    }
+    if (Object.keys(moved).length) await chrome.storage.local.set(moved);
+    if (stale.length) await chrome.storage.local.remove(stale);
+  } catch (error) {
+    console.error("[DeepWatch] Storage migration failed:", error);
+  }
+}
+
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === "install") chrome.runtime.openOptionsPage();
+  else void migrateLegacyStorage();
 });
 
 /**
@@ -609,10 +647,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       chrome.sidePanel
         .open({ tabId })
         .then(() => {
-          // Broadcast to side panel to start digest (in case it's already open)
+          // Broadcast to side panel to load the video (in case it's already open)
           setTimeout(() => {
             chrome.runtime
-              .sendMessage({ action: "startDigestFromButton" })
+              .sendMessage({ action: "loadVideoFromButton" })
               .catch(() => {});
           }, 300);
         })
@@ -785,7 +823,7 @@ async function getPlayerVideoDetails(tabId) {
  */
 async function handleFetchTranscript(videoId, tabId) {
   try {
-    return await YTD_TRANSCRIPT_YOUTUBE.fetchTranscript(tabId);
+    return await DW_TRANSCRIPT_YOUTUBE.fetchTranscript(tabId);
   } catch (error) {
     console.error("Transcript fetch error:", error);
     return {
@@ -1084,7 +1122,7 @@ async function handleSaveNote(
   tabId,
 ) {
   try {
-    const canonicalVideoUrl = YTD_SETTINGS.canonicalYouTubeUrl(videoId);
+    const canonicalVideoUrl = DW_SETTINGS.canonicalYouTubeUrl(videoId);
     const safeTimestamp = Math.max(0, Math.floor(Number(timestamp) || 0));
     const exactSelectedText =
       typeof selectedText === "string"
@@ -1118,15 +1156,15 @@ async function handleSaveNote(
       return { success: true, note };
     }
 
-    // First, try to get the transcript from the digest cache. The side panel
-    // saves digests to chrome.storage.LOCAL — this used to look in
+    // First, try to get the transcript from the video cache. The side panel
+    // saves results to chrome.storage.LOCAL — this used to look in
     // storage.session (the wrong store), so it missed every time and
     // refetched the transcript on every saved note.
     let transcript = null;
     try {
-      const cached = await chrome.storage.local.get(`digest_${videoId}`);
-      if (cached[`digest_${videoId}`]?.transcript) {
-        transcript = cached[`digest_${videoId}`].transcript;
+      const cached = await chrome.storage.local.get(`video_cache_${videoId}`);
+      if (cached[`video_cache_${videoId}`]?.transcript) {
+        transcript = cached[`video_cache_${videoId}`].transcript;
         debugLog("[DeepWatch] Using cached transcript for note");
       }
     } catch (e) {
@@ -1340,8 +1378,8 @@ async function cleanupNoteText(
  * Saves a note to chrome.storage.local
  */
 async function saveNoteToStorage(note) {
-  const result = await chrome.storage.local.get("ytd_notes");
-  const notes = result.ytd_notes || [];
+  const result = await chrome.storage.local.get("dw_notes");
+  const notes = result.dw_notes || [];
   notes.unshift(note); // Add to beginning (newest first)
 
   // Keep only last 100 notes to prevent storage bloat
@@ -1349,7 +1387,7 @@ async function saveNoteToStorage(note) {
     notes.splice(100);
   }
 
-  await chrome.storage.local.set({ ytd_notes: notes });
+  await chrome.storage.local.set({ dw_notes: notes });
 }
 
 /**
@@ -1357,8 +1395,8 @@ async function saveNoteToStorage(note) {
  */
 async function handleGetNotes(videoId) {
   try {
-    const result = await chrome.storage.local.get("ytd_notes");
-    let notes = result.ytd_notes || [];
+    const result = await chrome.storage.local.get("dw_notes");
+    let notes = result.dw_notes || [];
 
     if (videoId) {
       notes = notes.filter((n) => n.videoId === videoId);
@@ -1375,10 +1413,10 @@ async function handleGetNotes(videoId) {
  */
 async function handleDeleteNote(noteId) {
   try {
-    const result = await chrome.storage.local.get("ytd_notes");
-    let notes = result.ytd_notes || [];
+    const result = await chrome.storage.local.get("dw_notes");
+    let notes = result.dw_notes || [];
     notes = notes.filter((n) => n.id !== noteId);
-    await chrome.storage.local.set({ ytd_notes: notes });
+    await chrome.storage.local.set({ dw_notes: notes });
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -1393,8 +1431,8 @@ async function handleDeleteNote(noteId) {
  */
 async function handleUpdateNote(noteId, userNote) {
   try {
-    const result = await chrome.storage.local.get("ytd_notes");
-    const notes = result.ytd_notes || [];
+    const result = await chrome.storage.local.get("dw_notes");
+    const notes = result.dw_notes || [];
     const note = notes.find((n) => n.id === noteId);
     if (!note) {
       return { success: false, error: "Note not found" };
@@ -1408,7 +1446,7 @@ async function handleUpdateNote(noteId, userNote) {
     }
     note.updatedAt = Date.now();
 
-    await chrome.storage.local.set({ ytd_notes: notes });
+    await chrome.storage.local.set({ dw_notes: notes });
     return { success: true, note };
   } catch (error) {
     return { success: false, error: error.message };
@@ -1753,7 +1791,7 @@ async function callAiTranslation(
 }
 
 // Pure validators are exposed for the repository's Node tests only.
-globalThis.__YTD_TRANSLATION_TESTING__ = {
+globalThis.__DW_TRANSLATION_TESTING__ = {
   requestAiCompletion,
   callAiTranslation,
   validateTranscriptBatchRequest,

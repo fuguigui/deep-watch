@@ -133,10 +133,10 @@ test("release copy documents current scope without em dashes", () => {
   assert.match(readme, /ai\.google\.dev\/gemini-api\/docs\/models/i);
   assert.match(readme, /ai\.google\.dev\/gemini-api\/docs\/pricing/i);
   assert.match(chineseReadme, /aistudio\.google\.com\/apikey/i);
-  assert.match(readme, /^### The Digest button is missing on a video$/m);
+  assert.match(readme, /^### The DeepWatch button is missing on a video$/m);
   assert.match(
     chineseReadme,
-    /^### 视频页面没有显示 Digest 按钮$/m,
+    /^### 视频页面没有显示 DeepWatch 按钮$/m,
   );
   assert.match(readme, /^## How transcript fetching works$/m);
   assert.match(readme, /transcript\/youtube\.js/);

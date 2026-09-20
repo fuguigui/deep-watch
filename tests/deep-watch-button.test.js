@@ -114,9 +114,9 @@ function createHarness() {
     },
     querySelectorAll(selector) {
       if (selector === "ytd-watch-metadata #actions-inner") return actionRows;
-      if (selector === "#ytd-digest-button") {
+      if (selector === "#deep-watch-button") {
         return elements.filter(
-          (element) => element.id === "ytd-digest-button" && element.isConnected,
+          (element) => element.id === "deep-watch-button" && element.isConnected,
         );
       }
       if (selector.includes("top-level-buttons-computed")) return fallbackRows;
@@ -216,7 +216,7 @@ function createActionRow({ width, height }) {
   return { row, buttonGroup };
 }
 
-test("Digest button skips a hidden responsive toolbar", () => {
+test("DeepWatch button skips a hidden responsive toolbar", () => {
   const harness = createHarness();
   const { row: hiddenRow, buttonGroup: hiddenGroup } = createActionRow({
     width: 0,
@@ -230,18 +230,18 @@ test("Digest button skips a hidden responsive toolbar", () => {
   visibleGroup.appendChild(nativeButton);
   harness.actionRows.push(hiddenRow, visibleRow);
 
-  assert.equal(harness.context.findDigestButtonHost(), visibleGroup);
-  assert.equal(harness.context.injectDigestButton(), true);
+  assert.equal(harness.context.findDeepWatchButtonHost(), visibleGroup);
+  assert.equal(harness.context.injectDeepWatchButton(), true);
   assert.equal(hiddenGroup.children.length, 0);
   assert.equal(visibleRow.children.length, 1);
-  assert.equal(visibleGroup.children[0].id, "ytd-digest-button");
+  assert.equal(visibleGroup.children[0].id, "deep-watch-button");
   assert.equal(visibleGroup.children[1], nativeButton);
   assert.match(visibleGroup.children[0].style.cssText, /flex:\s*0 0 auto/);
   assert.match(visibleGroup.children[0].style.cssText, /width:\s*max-content/);
   assert.doesNotMatch(visibleGroup.children[0].style.cssText, /box-shadow/);
 });
 
-test("Digest button replaces stale instances and removes duplicates", () => {
+test("DeepWatch button replaces stale instances and removes duplicates", () => {
   const harness = createHarness();
   const { row: staleRow, buttonGroup: staleGroup } = createActionRow({
     width: 0,
@@ -254,19 +254,19 @@ test("Digest button replaces stale instances and removes duplicates", () => {
   harness.actionRows.push(staleRow, visibleRow);
 
   const staleButton = new FakeElement();
-  staleButton.id = "ytd-digest-button";
+  staleButton.id = "deep-watch-button";
   const duplicateButton = new FakeElement();
-  duplicateButton.id = "ytd-digest-button";
+  duplicateButton.id = "deep-watch-button";
   harness.elements.push(staleButton, duplicateButton);
   staleGroup.appendChild(staleButton);
   staleGroup.appendChild(duplicateButton);
 
-  assert.equal(harness.context.injectDigestButton(), true);
+  assert.equal(harness.context.injectDeepWatchButton(), true);
   assert.equal(staleGroup.children.length, 0);
   assert.equal(visibleRow.children.length, 1);
   assert.equal(visibleGroup.children.length, 1);
   assert.notEqual(visibleGroup.children[0], staleButton);
-  assert.equal(visibleGroup.children[0].id, "ytd-digest-button");
+  assert.equal(visibleGroup.children[0].id, "deep-watch-button");
   assert.equal(staleButton.isConnected, false);
   assert.equal(duplicateButton.isConnected, false);
 });
@@ -283,8 +283,8 @@ test("resize reconciliation follows YouTube to the newly visible toolbar", () =>
   });
   harness.actionRows.push(firstRow, secondRow);
 
-  harness.context.injectDigestButton();
-  harness.context.setupDigestButtonResizeListener();
+  harness.context.injectDeepWatchButton();
+  harness.context.setupDeepWatchButtonResizeListener();
   firstRow.width = 0;
   firstRow.height = 0;
   firstGroup.width = 0;
@@ -300,7 +300,7 @@ test("resize reconciliation follows YouTube to the newly visible toolbar", () =>
   assert.equal(firstGroup.children.length, 0);
   assert.equal(secondRow.children.length, 1);
   assert.equal(secondGroup.children.length, 1);
-  assert.equal(secondGroup.children[0].id, "ytd-digest-button");
+  assert.equal(secondGroup.children[0].id, "deep-watch-button");
 });
 
 test("DOM mutation reconciliation repairs a replaced toolbar", () => {
@@ -315,7 +315,7 @@ test("DOM mutation reconciliation repairs a replaced toolbar", () => {
   });
   harness.actionRows.push(oldRow, newRow);
 
-  harness.context.injectDigestButton();
+  harness.context.injectDeepWatchButton();
   harness.context.setupButtonObserver();
   oldRow.width = 0;
   oldRow.height = 0;

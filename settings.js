@@ -4,7 +4,7 @@
  * The API key is stored in chrome.storage.local by options.js. This file
  * contains defaults and validation only, so it is safe to publish.
  */
-var YTD_SETTINGS = (() => {
+var DW_SETTINGS = (() => {
   const STORAGE_KEY = "dw_settings";
 
   // One preset per built-in provider. `format` picks which request/response
@@ -187,5 +187,5 @@ var YTD_SETTINGS = (() => {
 })();
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = YTD_SETTINGS;
+  module.exports = DW_SETTINGS;
 }

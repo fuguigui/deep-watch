@@ -35,8 +35,8 @@ test("Settings copy covers English and Simplified Chinese", () => {
   assert.equal(options.translate("en", "saveSettings"), "Save settings");
   assert.equal(options.translate("zh-CN", "saveSettings"), "保存设置");
   assert.equal(
-    options.translate("zh-CN", "clearedDigests", { count: 2 }),
-    "已清除 2 条缓存摘要。",
+    options.translate("zh-CN", "clearedCache", { count: 2 }),
+    "已清除 2 条缓存结果。",
   );
 
   assert.deepEqual(

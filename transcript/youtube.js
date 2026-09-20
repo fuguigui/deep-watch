@@ -46,7 +46,7 @@
  *   }
  *   { success: false, error: "NO_TRANSCRIPT" | ..., message: "..." }
  */
-var YTD_TRANSCRIPT_YOUTUBE = (() => {
+var DW_TRANSCRIPT_YOUTUBE = (() => {
   /**
    * Opens (if needed) and reads YouTube's own transcript panel, entirely
    * inside the page's own JS world.
@@ -275,5 +275,5 @@ var YTD_TRANSCRIPT_YOUTUBE = (() => {
 })();
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = YTD_TRANSCRIPT_YOUTUBE;
+  module.exports = DW_TRANSCRIPT_YOUTUBE;
 }

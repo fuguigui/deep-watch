@@ -17,7 +17,7 @@ Depending on the feature you use, DeepWatch handles:
 - notes you save, including any of your own writing you add to one;
 - chat conversations you have about a video, kept per video;
 - your AI provider configuration, including which provider you chose, your API key, and the model; and
-- cached transcript, digest, translation, and chat results.
+- cached transcript, overview, translation, and chat results.
 
 ## Where data goes
 
@@ -48,7 +48,7 @@ DeepWatch uses Chrome's local extension storage, not a DeepWatch cloud service.
 
 - Your provider settings and API key remain on the device in Chrome's extension storage.
 - Saved notes remain until you delete them or remove/clear the extension's data. The extension keeps up to 100 notes.
-- Recent transcript, digest, and per-segment translation cache entries are stored
+- Recent transcript, overview, and per-segment translation cache entries are stored
   locally. The cache is limited to 20 videos, and entries older than 30 days are
   removed when the side panel opens.
 - Chat conversations are kept per video until you export them from the Chat tab, which clears them from local storage as part of the export.
@@ -58,7 +58,7 @@ Chrome extension storage is not a password vault. Anyone with sufficient access 
 To remove data:
 
 - delete individual saved notes, or export and clear chat history, in DeepWatch;
-- use the Options page to clear cached digests, delete all notes, or reset all extension data;
+- use the Options page to clear cached results, delete all notes, or reset all extension data;
 - remove the extension or clear its stored data from Chrome to delete all local settings, keys, notes, chat history, and cache entries; and
 - revoke your key with your chosen provider (e.g. Google AI Studio for Gemini) to stop its future use.
 

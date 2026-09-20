@@ -1575,14 +1575,13 @@ body {
 }
 
 /* ============================================================
-   CHAT TAB — select subtitle words for AI analysis, or ask freely
+   CHAT TAB — ask the AI about the video
    ============================================================ */
 .chat-tab {
   display: flex;
   flex-direction: column;
   height: min(70vh, 640px);
   min-height: 320px;
-  gap: 4px;
 }
 
 .chat-placeholder {
@@ -1592,74 +1591,6 @@ body {
   font-family: var(--font-reading);
   font-size: 13px;
   line-height: 1.6;
-}
-
-.chat-subtitle-box {
-  flex: 0 0 40%;
-  overflow-y: auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  padding: 10px 14px;
-  box-shadow: var(--shadow-sm);
-  user-select: text;
-}
-
-.chat-subtitle-line {
-  display: flex;
-  gap: 10px;
-  padding: 3px 0;
-  font-family: var(--font-reading);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.chat-subtitle-time {
-  flex: 0 0 auto;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  padding-top: 2px;
-}
-
-.chat-subtitle-text {
-  flex: 1;
-}
-
-.chat-subtitle-word {
-  cursor: pointer;
-  border-radius: 3px;
-  padding: 0 1px;
-}
-
-.chat-subtitle-word:hover {
-  background: var(--accent-dim);
-}
-
-.chat-subtitle-word.current-word {
-  background: var(--highlight);
-  color: #fff;
-}
-
-.chat-resize-handle {
-  flex: 0 0 auto;
-  height: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: ns-resize;
-}
-
-.chat-resize-indicator {
-  width: 36px;
-  height: 4px;
-  border-radius: var(--r-pill);
-  background: var(--border-heavy);
-  transition: background 0.18s ease;
-}
-
-.chat-resize-handle:hover .chat-resize-indicator {
-  background: var(--accent);
 }
 
 .chat-window {

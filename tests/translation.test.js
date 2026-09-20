@@ -63,11 +63,11 @@ function loadSidepanelHelpers({
       windows: { getCurrent: () => Promise.resolve({ id: 1 }) },
       tabs: { onUpdated: listeners, onActivated: listeners },
     },
-    YTD_SETTINGS: {},
+    DW_SETTINGS: {},
   };
   sandbox.globalThis = sandbox;
   vm.runInNewContext(read("sidepanel.js"), sandbox);
-  return sandbox.__YTD_TRANSCRIPT_TESTING__;
+  return sandbox.__DW_TRANSCRIPT_TESTING__;
 }
 
 function loadBackgroundHelpers({
@@ -129,7 +129,7 @@ function loadBackgroundHelpers({
     // background.js only touches this inside handleFetchTranscript, which
     // none of these tests call directly (they hit the exact-selected-text
     // path or mock fetch themselves) — a stub is enough to satisfy load.
-    YTD_TRANSCRIPT_YOUTUBE: {
+    DW_TRANSCRIPT_YOUTUBE: {
       fetchTranscript: async () => ({
         success: false,
         error: "NOT_MOCKED",
@@ -141,9 +141,9 @@ function loadBackgroundHelpers({
   // stay in sync with production automatically, instead of a hand-written
   // mock that would silently drift from it.
   vm.runInNewContext(read("settings.js"), sandbox);
-  localStorage[sandbox.YTD_SETTINGS.STORAGE_KEY] = settings;
+  localStorage[sandbox.DW_SETTINGS.STORAGE_KEY] = settings;
   vm.runInNewContext(read("background.js"), sandbox);
-  return sandbox.__YTD_TRANSLATION_TESTING__;
+  return sandbox.__DW_TRANSLATION_TESTING__;
 }
 
 test("non-YouTube tabs explicitly close before their panel is disabled", async () => {

@@ -7,8 +7,8 @@
 - 直接从视频所在网页免费抓取字幕，做成可阅读、可搜索的学习资料，不依赖任何第三方字幕服务，也不需要字幕 API 密钥。
 - 通过原文字幕、简体中文翻译，或对齐的双语视图学习语言。
 - 借助 AI 概览、章节、金句摘录和划词解释加深理解。
-- 在 Chat 标签页里选中字幕中的任意词句提问，或直接自由提问；支持点词跳转视频位置，并随播放实时高亮当前朗读的词。
-- 通过点击 Transcript、Overview、Notes 或 Chat 里的时间戳，在长视频中快速跳转。
+- 在 Chat 标签页里直接就视频内容提问。
+- 通过点击 Transcript、Overview 或 Notes 里的时间戳，在长视频中快速跳转。
 - 保存整理好的时间戳笔记留待复习，也可以按视频导出聊天记录。
 - 使用你自己选择的 AI 服务的 API 密钥和本地 Chrome 存储掌控数据，没有分析或遥测。
 
@@ -72,12 +72,12 @@ DeepWatch 是 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/yout
 ## 使用 DeepWatch
 
 1. 打开一个带字幕的标准视频页面。
-2. 点击 DeepWatch 扩展图标，或视频自带的分享/收藏按钮旁边的「Digest」按钮，打开侧边栏。
+2. 点击 DeepWatch 扩展图标，或视频自带的分享/收藏按钮旁边的「DeepWatch」按钮，打开侧边栏。
 3. 阅读带时间戳的字幕，或者切换到「原文」「中文」「双语」。
 4. 打开「Overview」查看 AI 生成的章节和金句摘录。
 5. 选中字幕文本可以获得 AI 解释。
 6. 把鼠标移到视频上点击「Note」，或在视频获得焦点时按下 **n** 键，保存一条带时间戳的笔记；之后可以在「Notes」里查看。
-7. 打开「Chat」，选中字幕中的一个词或一句话快速提问，或直接自由提问关于这个视频的任何问题。点击任意单词即可跳转到对应视频位置，播放时当前朗读的词也会实时高亮。想保留对话时，可以在 Chat 标签页里把它导出为 JSON。
+7. 打开「Chat」，直接提问关于这个视频的任何问题。想保留对话时，可以在 Chat 标签页里把它导出为 JSON。
 
 ## 目前支持的范围
 
@@ -86,7 +86,7 @@ DeepWatch 是 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/yout
 - 视频播放器自己列出的原生字幕轨道。DeepWatch 会优先选择英文（如果有），否则可能显示其他原生语言。
 - 原文、简体中文，以及对齐的双语字幕视图。
 - AI 概览、划词解释、翻译、自动笔记润色，以及懂视频内容的聊天功能。
-- 本地笔记、按视频保存的本地聊天记录，以及最近字幕和摘要结果的本地缓存。
+- 本地笔记、按视频保存的本地聊天记录，以及最近字幕和概览结果的本地缓存。
 - 所有 AI 功能都可以选择你想用的服务（Gemini、OpenAI、Anthropic、DeepSeek、OpenRouter、Ollama，或自定义接口），模型可在设置页面里配置。
 
 Shorts 短视频、直播、私享或受限访问的视频，以及没有原生字幕的视频可能无法使用。目前未测试或不支持 Firefox、Safari、移动端浏览器和其他 Chromium 浏览器。
@@ -126,7 +126,7 @@ DeepWatch 是 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/yout
 
 - 字幕抓取不再依赖 Supadata API，改成直接从视频所在网页读取字幕，完全免费，也不需要字幕 API 密钥（见 `transcript/youtube.js`）。
 - AI 服务不再固定成一家。设置页面现在提供 Gemini（默认）、OpenAI、Anthropic Claude、DeepSeek、OpenRouter、本地 Ollama 服务器，或者自定义接口，每种在 `background.js` 里都有自己的请求/响应处理逻辑。
-- 新增了 Chat 标签页：可以逐词点击的字幕视图、点词跳转、实时高亮，按视频保存的对话，以及导出为 JSON。
+- 新增了 Chat 标签页：按视频保存的对话，以及导出为 JSON。
 - 笔记新增了一块可编辑的、和原文明确区分开的自己写的内容区域（放在不变的原文摘录下面），支持按视频分组、一键导出为 Markdown，以及一个独立的全页视图（`notes.html`）。
 - 任何一种 API 密钥都是可选项，不是必须条件，字幕和笔记功能完全不需要密钥就能用。
 
@@ -145,7 +145,7 @@ DeepWatch 没有账号系统、广告、分析或遥测。你选择的 AI 服务
 
 ## 疑难排查
 
-### 视频页面没有显示 Digest 按钮
+### 视频页面没有显示 DeepWatch 按钮
 
 - 在 `chrome://extensions` 中找到 DeepWatch，点击「重新加载」，然后刷新视频标签页。
 - 确认你所在的是标准的 `https://www.youtube.com/watch?...` 页面，而不是 Shorts、内嵌播放器或直播页面。
