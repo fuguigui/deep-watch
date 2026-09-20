@@ -152,10 +152,11 @@ test("customization prompt switches languages and preserves technical values", (
   const englishPrompt = options.translate("en", "customizationPrompt");
   const chinesePrompt = options.translate("zh-CN", "customizationPrompt");
 
-  assert.match(html, /placeholder="Paste your Gemini key"/);
-  assert.match(html, /placeholder="gemini-2\.5-flash"/);
-  assert.match(html, /https:\/\/aistudio\.google\.com\/apikey/);
-  assert.match(html, /https:\/\/ai\.google\.dev\/gemini-api\/docs\/models/);
+  assert.match(html, /placeholder="Paste your API key"/);
+  assert.match(html, /id="aiProviderSelect"/);
+  assert.match(html, /<option value="gemini">Google Gemini<\/option>/);
+  assert.match(html, /<option value="custom">Custom \(JSON config\)<\/option>/);
+  assert.match(html, /id="customProviderConfig"/);
   assert.ok(html.includes(`>${englishPrompt}</textarea>`));
   assert.match(chinesePrompt, /^请把当前本地 DeepWatch 工作区改为使用/);
   assert.notEqual(chinesePrompt, englishPrompt);

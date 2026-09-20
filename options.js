@@ -3,29 +3,45 @@ const YTD_OPTIONS = (() => {
   const PREVIEW_STORAGE_PREFIX = "deepWatchPreview:";
   const SUPPORTED_LANGUAGES = new Set(["en", "zh-CN"]);
 
+  // Where to create a key for each built-in provider. Ollama is local and
+  // usually needs no key at all, so it has no link.
+  const PROVIDER_KEY_LINKS = Object.freeze({
+    gemini: "https://aistudio.google.com/apikey",
+    openai: "https://platform.openai.com/api-keys",
+    anthropic: "https://console.anthropic.com/settings/keys",
+    deepseek: "https://platform.deepseek.com/api_keys",
+    openrouter: "https://openrouter.ai/keys",
+    ollama: null,
+  });
+
   const COPY = {
     en: {
       pageTitle: "DeepWatch Settings",
       languageGroupLabel: "Interface language",
       heading: "Bring your own API key (optional)",
       lede:
-        "Transcripts and Notes work without any key, read directly from the video's own page with no third-party transcript service. A Gemini API key only unlocks Overview, translation, Explain, and Chat, and stays in this Chrome profile, sent only to Google's Gemini API. This open-source extension has no developer server or analytics.",
+        "Transcripts and Notes work without any key, read directly from the video's own page with no third-party transcript service. An API key only unlocks Overview, translation, Explain, and Chat, and stays in this Chrome profile, sent only to your chosen provider. This open-source extension has no developer server or analytics.",
       aiProvider: "AI provider",
-      providerSummaryLabel: "Supported AI provider",
-      providerBadge: "Supported in this version",
-      geminiApiKeyLabel: "Gemini API key",
-      geminiHelp:
-        "DeepWatch uses Gemini for overviews, explanations, translation, note polishing, and chat. ",
-      geminiLink: "Create a Gemini API key",
-      geminiHelpSuffix: ".",
-      geminiModelLabel: "Gemini model",
-      geminiModelHelp:
-        "The Gemini model name to call. Defaults to a fast, low-cost model; see the ",
-      geminiModelLink: "list of available Gemini models",
-      geminiModelHelpSuffix:
-        ", for example gemini-2.5-pro for higher-quality, slower responses.",
+      aiProviderSelectLabel: "Provider",
+      apiKeyLabel: "API key",
+      modelLabel: "Model",
+      providerKeyHelpText:
+        "DeepWatch sends the video transcript to this provider when you use AI features.",
+      getApiKeyLinkText: "Create an API key",
+      ollamaKeyNote:
+        "Ollama runs locally and usually doesn't need an API key. Leave this blank unless your server requires one.",
+      modelHelpPrefix: "Leave blank to use the provider's default:",
+      customProviderConfigLabel: "Custom provider config (JSON)",
+      customProviderHelp:
+        'A JSON object with <code>url</code> (or <code>baseUrl</code> + <code>path</code>), <code>model</code>, and optionally <code>apiKey</code>, <code>headers</code>, and <code>format</code> (one of <code>"openai"</code>, <code>"anthropic"</code>, or <code>"gemini"</code>; defaults to <code>"openai"</code>). Use this for a provider not listed above, e.g. Azure OpenAI or a self-hosted endpoint.',
+      customProviderPermissionHint:
+        "Saving may ask you to grant Chrome permission to contact this URL, which is expected for a new endpoint.",
+      customProviderInvalidJson:
+        "This isn't valid JSON, or is missing a url. Fix it and try again.",
+      customProviderPermissionDenied:
+        "Chrome didn't grant permission for this URL, so settings weren't saved. Click Save again and allow the request.",
       privacyNote:
-        "When you use AI features, Gemini receives the video transcript and relevant video context. Review Google's terms and pricing before saving.",
+        "When you use AI features, your chosen provider receives the video transcript and relevant video context. Review its terms and pricing before saving.",
       saveSettings: "Save settings",
       localRemix: "Local remix",
       customizationTitle: "Want to use another AI provider?",
@@ -73,22 +89,27 @@ const YTD_OPTIONS = (() => {
       languageGroupLabel: "界面语言",
       heading: "使用你自己的 API 密钥（可选）",
       lede:
-        "不填密钥也能正常使用字幕和笔记功能，字幕直接从视频所在网页读取，不经过任何第三方字幕服务。Gemini API 密钥只用来解锁概览、翻译、划词解释和聊天这几个功能，密钥仅保存在当前 Chrome 个人资料中，只会发送给 Google 的 Gemini API。本开源扩展没有开发者服务器，也不使用分析服务。",
+        "不填密钥也能正常使用字幕和笔记功能，字幕直接从视频所在网页读取，不经过任何第三方字幕服务。API 密钥只用来解锁概览、翻译、划词解释和聊天这几个功能，密钥仅保存在当前 Chrome 个人资料中，只会发送给你选择的服务。本开源扩展没有开发者服务器，也不使用分析服务。",
       aiProvider: "AI 服务",
-      providerSummaryLabel: "支持的 AI 服务",
-      providerBadge: "当前版本支持",
-      geminiApiKeyLabel: "Gemini API 密钥",
-      geminiHelp:
-        "DeepWatch 使用 Gemini 生成概览、解释内容、翻译字幕、润色笔记以及聊天功能。",
-      geminiLink: "创建 Gemini API 密钥",
-      geminiHelpSuffix: "。",
-      geminiModelLabel: "Gemini 模型",
-      geminiModelHelp: "要调用的 Gemini 模型名称。默认是一个快速、低成本的模型；可参考",
-      geminiModelLink: "可用的 Gemini 模型列表",
-      geminiModelHelpSuffix:
-        "，例如想要更高质量但更慢的回复，可以填 gemini-2.5-pro。",
+      aiProviderSelectLabel: "服务",
+      apiKeyLabel: "API 密钥",
+      modelLabel: "模型",
+      providerKeyHelpText: "使用 AI 功能时，DeepWatch 会把视频字幕发送给这个服务。",
+      getApiKeyLinkText: "创建 API 密钥",
+      ollamaKeyNote:
+        "Ollama 在本地运行，通常不需要 API 密钥。除非你的服务器要求，否则留空即可。",
+      modelHelpPrefix: "留空则使用该服务的默认模型：",
+      customProviderConfigLabel: "自定义服务配置（JSON）",
+      customProviderHelp:
+        '一个 JSON 对象，需要包含 <code>url</code>（或者 <code>baseUrl</code> + <code>path</code>）、<code>model</code>，以及可选的 <code>apiKey</code>、<code>headers</code> 和 <code>format</code>（取值为 <code>"openai"</code>、<code>"anthropic"</code> 或 <code>"gemini"</code> 之一，默认是 <code>"openai"</code>）。适用于上面列表里没有的服务，比如 Azure OpenAI 或者自建的接口。',
+      customProviderPermissionHint:
+        "保存时可能会让你授权 Chrome 访问这个地址，对一个新接口来说这是正常的。",
+      customProviderInvalidJson:
+        "这不是合法的 JSON，或者缺少 url。请修正后重试。",
+      customProviderPermissionDenied:
+        "Chrome 没有授权访问这个地址，设置未保存。请重新点击保存并允许该请求。",
       privacyNote:
-        "使用 AI 功能时，Gemini 会收到视频字幕及相关视频上下文。保存前请查看 Google 的服务条款和价格。",
+        "使用 AI 功能时，你选择的服务会收到视频字幕及相关视频上下文。保存前请查看该服务的条款和价格。",
       saveSettings: "保存设置",
       localRemix: "本地改造",
       customizationTitle: "想使用其他 AI 服务？",
@@ -336,8 +357,22 @@ const YTD_OPTIONS = (() => {
       getSafeLocalStorage(root),
     );
     const form = doc.getElementById("settingsForm");
+    const providerSelect = doc.getElementById("aiProviderSelect");
+    const providerKeyFields = doc.getElementById("providerKeyFields");
+    const customProviderFields = doc.getElementById("customProviderFields");
     const aiApiKeyInput = doc.getElementById("aiApiKey");
+    const aiApiKeyLabel = doc.getElementById("aiApiKeyLabel");
     const aiModelInput = doc.getElementById("aiModel");
+    const providerKeyLink = doc.getElementById("providerKeyLink");
+    const providerKeyNote = doc.getElementById("providerKeyNote");
+    const providerKeyHelpText = doc.getElementById("providerKeyHelpText");
+    const providerModelDefault = doc.getElementById("providerModelDefault");
+    const customProviderConfigInput = doc.getElementById(
+      "customProviderConfig",
+    );
+    const customProviderPermissionNote = doc.getElementById(
+      "customProviderPermissionNote",
+    );
     const customizationPrompt = doc.getElementById("customizationPrompt");
     const copyCustomizationPromptBtn = doc.getElementById(
       "copyCustomizationPromptBtn",
@@ -398,6 +433,48 @@ const YTD_OPTIONS = (() => {
       );
       updateLanguageButtonState(languageButtons, currentLanguage);
       for (const element of statusStates.keys()) renderStatus(element);
+      updateProviderFieldsUi();
+    }
+
+    /**
+     * Shows the fields for whichever provider is selected: an API key +
+     * model for a built-in provider (label, default model, and "get a key"
+     * link all swap to match it), or a single JSON textarea for Custom.
+     */
+    function updateProviderFieldsUi() {
+      const provider = providerSelect.value;
+      const isCustom = provider === "custom";
+
+      providerKeyFields.style.display = isCustom ? "none" : "block";
+      customProviderFields.style.display = isCustom ? "block" : "none";
+
+      if (isCustom) {
+        customProviderPermissionNote.style.display = "block";
+        customProviderPermissionNote.textContent = translate(
+          currentLanguage,
+          "customProviderPermissionHint",
+        );
+        return;
+      }
+
+      const preset =
+        settingsApi.PROVIDER_PRESETS[provider] ||
+        settingsApi.PROVIDER_PRESETS.gemini;
+      aiApiKeyLabel.textContent = `${preset.label} ${translate(currentLanguage, "apiKeyLabel")}`;
+      aiModelInput.placeholder = preset.defaultModel;
+      providerModelDefault.textContent = preset.defaultModel;
+
+      const keyLink = PROVIDER_KEY_LINKS[provider];
+      if (preset.requiresKey === false) {
+        providerKeyHelpText.hidden = true;
+        providerKeyLink.hidden = true;
+        providerKeyNote.hidden = false;
+      } else {
+        providerKeyHelpText.hidden = false;
+        providerKeyNote.hidden = true;
+        providerKeyLink.hidden = !keyLink;
+        if (keyLink) providerKeyLink.href = keyLink;
+      }
     }
 
     async function loadSettings() {
@@ -405,8 +482,11 @@ const YTD_OPTIONS = (() => {
         const stored = await storage.get(settingsApi.STORAGE_KEY);
         const settings = settingsApi.normalize(stored[settingsApi.STORAGE_KEY]);
 
+        providerSelect.value = settings.provider;
         aiApiKeyInput.value = settings.aiApiKey;
         aiModelInput.value = settings.aiModel;
+        customProviderConfigInput.value = settings.customProviderConfig;
+        updateProviderFieldsUi();
       } catch (_error) {
         setStatus(saveStatus, "settingsLoadFailed");
       }
@@ -421,17 +501,55 @@ const YTD_OPTIONS = (() => {
       await loadSettings();
     }
 
+    /**
+     * A Custom provider's URL is arbitrary, so Chrome needs explicit
+     * permission for that origin before we can fetch it — requested here,
+     * in this user-gesture-triggered save, rather than upfront at install.
+     */
+    async function ensureCustomProviderPermission(url) {
+      let origin;
+      try {
+        origin = `${new URL(url).origin}/*`;
+      } catch (_error) {
+        return false;
+      }
+      const permissionsApi = root.chrome?.permissions;
+      if (!permissionsApi) return true; // Preview context — nothing to request.
+      const alreadyGranted = await permissionsApi.contains({
+        origins: [origin],
+      });
+      if (alreadyGranted) return true;
+      return permissionsApi.request({ origins: [origin] });
+    }
+
     async function saveSettings(event) {
       event.preventDefault();
       setStatus(saveStatus, "saving");
 
-      // A Gemini key is optional: Transcript and Notes work without one.
+      // An API key is optional: Transcript and Notes work without one.
       // Leaving the field blank just means the AI-only features (Overview,
       // translation, Explain, Chat) stay off until a key is added later.
       const settings = settingsApi.normalize({
+        provider: providerSelect.value,
         aiApiKey: aiApiKeyInput.value,
         aiModel: aiModelInput.value,
+        customProviderConfig: customProviderConfigInput.value,
       });
+
+      if (settings.provider === "custom") {
+        let resolved;
+        try {
+          resolved = settingsApi.resolveProvider(settings);
+        } catch (_error) {
+          setStatus(saveStatus, "customProviderInvalidJson");
+          return;
+        }
+        const granted = await ensureCustomProviderPermission(resolved.url);
+        if (!granted) {
+          setStatus(saveStatus, "customProviderPermissionDenied");
+          return;
+        }
+      }
 
       try {
         await storage.set({ [settingsApi.STORAGE_KEY]: settings });
@@ -479,6 +597,7 @@ const YTD_OPTIONS = (() => {
     }
 
     form.addEventListener("submit", saveSettings);
+    providerSelect.addEventListener("change", updateProviderFieldsUi);
     copyCustomizationPromptBtn.addEventListener(
       "click",
       copyCustomizationPrompt,

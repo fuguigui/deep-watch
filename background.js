@@ -113,6 +113,50 @@ function buildGeminiRequestBody({ messages, maxTokens, temperature, responseForm
   return body;
 }
 
+/**
+ * Builds the request body for any OpenAI-compatible chat/completions
+ * endpoint — used by OpenAI, DeepSeek, OpenRouter, Ollama's OpenAI-shaped
+ * endpoint, and a Custom provider configured with "format": "openai".
+ */
+function buildOpenAiRequestBody({ messages, maxTokens, temperature, responseFormat, model }) {
+  const body = { model, messages, max_tokens: maxTokens };
+  if (typeof temperature === "number") body.temperature = temperature;
+  if (responseFormat) body.response_format = responseFormat;
+  return body;
+}
+
+/**
+ * Builds the request body for Anthropic's Messages API. Unlike the other
+ * two shapes, the system prompt is its own top-level field rather than a
+ * message with role "system", and max_tokens is required (Anthropic has no
+ * default), so we fall back to a reasonable one if the caller didn't ask
+ * for a specific limit.
+ */
+function buildAnthropicRequestBody({ messages, maxTokens, temperature, model }) {
+  const systemParts = [];
+  const anthropicMessages = [];
+  for (const message of messages || []) {
+    if (message.role === "system") {
+      systemParts.push(message.content);
+      continue;
+    }
+    const role =
+      message.role === "assistant" || message.role === "model"
+        ? "assistant"
+        : "user";
+    anthropicMessages.push({ role, content: message.content });
+  }
+
+  const body = {
+    model,
+    messages: anthropicMessages,
+    max_tokens: typeof maxTokens === "number" ? maxTokens : 1024,
+  };
+  if (systemParts.length > 0) body.system = systemParts.join("\n\n");
+  if (typeof temperature === "number") body.temperature = temperature;
+  return body;
+}
+
 async function requestAiCompletion({
   messages,
   maxTokens,
@@ -120,19 +164,46 @@ async function requestAiCompletion({
   responseFormat,
 }) {
   const settings = await getSettings();
-  if (!settings.aiApiKey) {
+
+  let provider;
+  try {
+    provider = YTD_SETTINGS.resolveProvider(settings);
+  } catch (configError) {
+    const error = new Error(configError.message);
+    error.code = "INVALID_PROVIDER_CONFIG";
+    throw error;
+  }
+
+  if (provider.requiresKey && !provider.apiKey) {
     const error = new Error(
-      "Gemini API key not configured. Open DeepWatch Settings.",
+      `${provider.providerLabel} API key not configured. Open DeepWatch Settings.`,
     );
     error.code = "NO_AI_KEY";
     throw error;
   }
-  const body = buildGeminiRequestBody({
-    messages,
-    maxTokens,
-    temperature,
-    responseFormat,
-  });
+
+  let body;
+  let url = provider.url;
+  const headers = { "Content-Type": "application/json", ...provider.headers };
+
+  if (provider.format === "gemini") {
+    body = buildGeminiRequestBody({ messages, maxTokens, temperature, responseFormat });
+    // Gemini takes the API key as a query parameter, not a Bearer header.
+    url += `${url.includes("?") ? "&" : "?"}key=${encodeURIComponent(provider.apiKey)}`;
+  } else if (provider.format === "anthropic") {
+    body = buildAnthropicRequestBody({ messages, maxTokens, temperature, model: provider.model });
+    headers["x-api-key"] = provider.apiKey;
+    headers["anthropic-version"] = "2023-06-01";
+  } else {
+    body = buildOpenAiRequestBody({
+      messages,
+      maxTokens,
+      temperature,
+      responseFormat,
+      model: provider.model,
+    });
+    if (provider.apiKey) headers.Authorization = `Bearer ${provider.apiKey}`;
+  }
 
   const controller = new AbortController();
   let timeoutKind = "";
@@ -157,60 +228,65 @@ async function requestAiCompletion({
   );
   resetIdleTimeout();
   try {
-    // Gemini takes the API key as a query parameter, not a Bearer header.
-    const url = `${YTD_SETTINGS.generateContentUrl(settings.aiModel)}?key=${encodeURIComponent(settings.aiApiKey)}`;
     const response = await fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    // Receiving headers proves Gemini is still making progress.
+    // Receiving headers proves the provider is still making progress.
     resetIdleTimeout();
 
-    const data = await readBoundedAiResponse(response, resetIdleTimeout);
+    const data = await readBoundedAiResponse(response, resetIdleTimeout, provider.providerLabel);
     if (!response.ok) {
       const errorData = data && typeof data === "object" ? data : {};
       const error = new Error(
         errorData.error?.message ||
           errorData.message ||
-          `Gemini error: ${response.status}`,
+          `${provider.providerLabel} error: ${response.status}`,
       );
       error.status = response.status;
       throw error;
     }
 
-    const candidate = data.candidates?.[0];
-    const blockReason = data.promptFeedback?.blockReason;
-    if (blockReason) {
-      const error = new Error(`Gemini blocked this request (${blockReason}).`);
-      error.code = "AI_BLOCKED";
-      throw error;
+    let text;
+    if (provider.format === "gemini") {
+      const candidate = data.candidates?.[0];
+      const blockReason = data.promptFeedback?.blockReason;
+      if (blockReason) {
+        const error = new Error(`${provider.providerLabel} blocked this request (${blockReason}).`);
+        error.code = "AI_BLOCKED";
+        throw error;
+      }
+      text = (candidate?.content?.parts || [])
+        .map((part) => part.text || "")
+        .join("");
+    } else if (provider.format === "anthropic") {
+      text = (data.content || [])
+        .map((block) => block.text || "")
+        .join("");
+    } else {
+      text = data.choices?.[0]?.message?.content;
     }
 
-    const text = (candidate?.content?.parts || [])
-      .map((part) => part.text || "")
-      .join("");
     if (typeof text !== "string" || !text.trim()) {
-      const error = new Error("Gemini returned an empty response.");
+      const error = new Error(`${provider.providerLabel} returned an empty response.`);
       error.code = "EMPTY_AI_RESPONSE";
       throw error;
     }
 
-    return { text, settings };
+    return { text, settings, provider };
   } catch (error) {
     if (timeoutKind === "idle") {
       const timeoutError = new Error(
-        "Gemini request was inactive for 50 seconds. Please Retry.",
+        `${provider.providerLabel} request was inactive for 50 seconds. Please Retry.`,
       );
       timeoutError.code = "AI_IDLE_TIMEOUT";
       throw timeoutError;
     }
     if (timeoutKind === "hard") {
       const timeoutError = new Error(
-        "Gemini request exceeded the 120-second limit. Please Retry.",
+        `${provider.providerLabel} request exceeded the 120-second limit. Please Retry.`,
       );
       timeoutError.code = "AI_HARD_TIMEOUT";
       throw timeoutError;
@@ -222,7 +298,7 @@ async function requestAiCompletion({
   }
 }
 
-async function readBoundedAiResponse(response, onActivity) {
+async function readBoundedAiResponse(response, onActivity, providerLabel = "AI provider") {
   const reader = response.body?.getReader?.();
   if (reader) {
     const decoder = new TextDecoder();
@@ -231,13 +307,13 @@ async function readBoundedAiResponse(response, onActivity) {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      // Every received chunk is activity, including Gemini's blank lines.
+      // Every received chunk is activity, including a provider's blank lines.
       onActivity();
       const byteLength = value?.byteLength ?? 0;
       responseBytes += byteLength;
       if (responseBytes > AI_PROVIDER_MAX_RESPONSE_BYTES) {
         await reader.cancel?.().catch(() => {});
-        const error = new Error("Gemini response exceeded the 2 MiB limit.");
+        const error = new Error(`${providerLabel} response exceeded the 2 MiB limit.`);
         error.code = "AI_RESPONSE_TOO_LARGE";
         throw error;
       }
@@ -254,7 +330,7 @@ async function readBoundedAiResponse(response, onActivity) {
     onActivity();
     const byteLength = new TextEncoder().encode(responseText).byteLength;
     if (byteLength > AI_PROVIDER_MAX_RESPONSE_BYTES) {
-      const error = new Error("Gemini response exceeded the 2 MiB limit.");
+      const error = new Error(`${providerLabel} response exceeded the 2 MiB limit.`);
       error.code = "AI_RESPONSE_TOO_LARGE";
       throw error;
     }
@@ -465,6 +541,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "deleteNote") {
     // Delete a specific note
     handleDeleteNote(message.noteId)
+      .then(sendResponse)
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === "updateNote") {
+    // Save the person's own writing on a note, appended after the
+    // transcript excerpt (which this never touches).
+    handleUpdateNote(message.noteId, message.userNote)
       .then(sendResponse)
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
@@ -1295,6 +1380,36 @@ async function handleDeleteNote(noteId) {
     notes = notes.filter((n) => n.id !== noteId);
     await chrome.storage.local.set({ ytd_notes: notes });
     return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Sets a note's userNote field — the person's own writing, appended after
+ * the transcript excerpt rather than replacing it. The transcript excerpt
+ * itself (note.text / note.rawText) is never edited here or anywhere else,
+ * so a saved note always keeps what the video actually said.
+ */
+async function handleUpdateNote(noteId, userNote) {
+  try {
+    const result = await chrome.storage.local.get("ytd_notes");
+    const notes = result.ytd_notes || [];
+    const note = notes.find((n) => n.id === noteId);
+    if (!note) {
+      return { success: false, error: "Note not found" };
+    }
+
+    const trimmed = typeof userNote === "string" ? userNote.trim() : "";
+    if (trimmed) {
+      note.userNote = trimmed.slice(0, 4000);
+    } else {
+      delete note.userNote;
+    }
+    note.updatedAt = Date.now();
+
+    await chrome.storage.local.set({ ytd_notes: notes });
+    return { success: true, note };
   } catch (error) {
     return { success: false, error: error.message };
   }

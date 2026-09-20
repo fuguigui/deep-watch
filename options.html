@@ -48,73 +48,103 @@
       <form id="settingsForm">
         <section class="card">
           <h2 data-i18n="aiProvider">AI provider</h2>
-          <div
-            class="provider-summary"
-            aria-label="Supported AI provider"
-            data-i18n-aria-label="providerSummaryLabel"
+
+          <label for="aiProviderSelect" data-i18n="aiProviderSelectLabel"
+            >Provider</label
           >
-            <span class="provider-name">Google Gemini</span>
-            <span class="provider-badge" data-i18n="providerBadge"
-              >Supported in this version</span
+          <select id="aiProviderSelect" name="provider">
+            <option value="gemini">Google Gemini</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic Claude</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="ollama">Ollama (local)</option>
+            <option value="custom">Custom (JSON config)</option>
+          </select>
+
+          <div id="providerKeyFields">
+            <label for="aiApiKey" id="aiApiKeyLabel" data-i18n="apiKeyLabel"
+              >API key</label
             >
+            <input
+              id="aiApiKey"
+              name="aiApiKey"
+              type="password"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Paste your API key"
+            />
+            <p class="help">
+              <span id="providerKeyHelpText" data-i18n="providerKeyHelpText"
+                >DeepWatch sends the video transcript to this provider when
+                you use AI features.</span
+              >
+              <a
+                id="providerKeyLink"
+                href="#"
+                target="_blank"
+                rel="noreferrer"
+                data-i18n="getApiKeyLinkText"
+                >Create an API key</a
+              >
+              <span id="providerKeyNote" data-i18n="ollamaKeyNote" hidden
+                >Ollama runs locally and usually doesn't need an API key.
+                Leave this blank unless your server requires one.</span
+              >
+            </p>
+
+            <label for="aiModel" id="aiModelLabel" data-i18n="modelLabel"
+              >Model</label
+            >
+            <input
+              id="aiModel"
+              name="aiModel"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <p class="help">
+              <span data-i18n="modelHelpPrefix"
+                >Leave blank to use the provider's default:</span
+              >
+              <code id="providerModelDefault"></code>
+            </p>
           </div>
 
-          <label for="aiApiKey" data-i18n="geminiApiKeyLabel"
-            >Gemini API key</label
-          >
-          <input
-            id="aiApiKey"
-            name="aiApiKey"
-            type="password"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Paste your Gemini key"
-          />
-          <p class="help">
-            <span data-i18n="geminiHelp"
-              >DeepWatch uses Gemini for overviews, explanations, translation,
-              note polishing, and chat.</span
+          <div id="customProviderFields" style="display: none">
+            <label
+              for="customProviderConfig"
+              data-i18n="customProviderConfigLabel"
+              >Custom provider config (JSON)</label
             >
-            <a
-              href="https://aistudio.google.com/apikey"
-              target="_blank"
-              rel="noreferrer"
-              data-i18n="geminiLink"
-              >Create a Gemini API key</a
-            ><span data-i18n="geminiHelpSuffix">.</span>
-          </p>
+            <textarea
+              id="customProviderConfig"
+              name="customProviderConfig"
+              rows="8"
+              spellcheck="false"
+              placeholder='{&#10;  "url": "https://your-endpoint/v1/chat/completions",&#10;  "apiKey": "sk-...",&#10;  "model": "your-model-name",&#10;  "format": "openai",&#10;  "headers": {}&#10;}'
+            ></textarea>
+            <p class="help" data-i18n-html="customProviderHelp">
+              A JSON object with
+              <code>url</code> (or <code>baseUrl</code> + <code>path</code>),
+              <code>model</code>, and optionally <code>apiKey</code>,
+              <code>headers</code>, and <code>format</code> (one of
+              <code>"openai"</code>, <code>"anthropic"</code>, or
+              <code>"gemini"</code>; defaults to <code>"openai"</code>). Use
+              this for a provider not listed above, e.g. Azure OpenAI or a
+              self-hosted endpoint.
+            </p>
+            <p
+              class="help"
+              id="customProviderPermissionNote"
+              style="display: none"
+            ></p>
+          </div>
 
-          <label for="aiModel" data-i18n="geminiModelLabel"
-            >Gemini model</label
-          >
-          <input
-            id="aiModel"
-            name="aiModel"
-            type="text"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="gemini-2.5-flash"
-          />
-          <p class="help">
-            <span data-i18n="geminiModelHelp"
-              >The Gemini model name to call. Defaults to a fast, low-cost
-              model; see the</span
-            >
-            <a
-              href="https://ai.google.dev/gemini-api/docs/models"
-              target="_blank"
-              rel="noreferrer"
-              data-i18n="geminiModelLink"
-              >list of available Gemini models</a
-            ><span data-i18n="geminiModelHelpSuffix"
-              >, for example gemini-2.5-pro for higher-quality, slower
-              responses.</span
-            >
-          </p>
           <div class="privacy-note" data-i18n="privacyNote">
-            When you use AI features, Gemini receives the video transcript
-            and relevant video context. Review Google's terms and pricing
-            before saving.
+            When you use AI features, your chosen provider receives the
+            video transcript and relevant video context. Review its terms
+            and pricing before saving.
           </div>
         </section>
 

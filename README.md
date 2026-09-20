@@ -10,9 +10,9 @@ Turn every video into a resource for deep learning. DeepWatch brings transcripts
 - Ask a video-aware chat about anything you select in the transcript, or ask it freely, with word-level click-to-seek and live highlighting as the video plays.
 - Navigate long videos by clicking timestamps in the transcript, overview, notes, or chat subtitle view.
 - Save polished timestamped notes for later study, and export your chat history per video.
-- Keep control of your data with your own Gemini API key, local Chrome storage, and no analytics or telemetry.
+- Keep control of your data with your own API key for whichever AI provider you choose, local Chrome storage, and no analytics or telemetry.
 
-A Gemini API key is optional, not required: Transcript and Notes work fully without one. Only the AI features (Overview, translation, Explain, Chat) need a key, and each one just says so and points you at Settings if you try it without one.
+An API key is optional, not required: Transcript and Notes work fully without one. Only the AI features (Overview, translation, Explain, Chat) need a key, and each one just says so and points you at Settings if you try it without one. Settings supports Google Gemini (the default), OpenAI, Anthropic Claude, DeepSeek, OpenRouter, a local Ollama server, or a custom endpoint you configure yourself with a small JSON snippet.
 
 DeepWatch is a bring-your-own-key project installed locally from GitHub. It is not available through the Chrome Web Store, does not include API credits, and does not run a developer-operated server.
 
@@ -27,7 +27,7 @@ You do not need to understand the code or use the command line. Send this messag
 Your agent should:
 
 1. Ask where you want to keep the project, download or clone it there, and tell you the exact full path. If you want a suggestion, it can offer `~/Documents/deep-watch` on macOS or Linux, or `%USERPROFILE%\Documents\deep-watch` on Windows.
-2. Open the official Google AI Studio page below and help you create your own Gemini API key.
+2. Help you create an API key for the AI provider you want to use (Google AI Studio for the default, Gemini, or another provider's own site).
 3. Walk you through selecting the exact project folder you chose in Chrome with **Load unpacked**.
 4. Show you where to enter your API key in the extension's **Settings** page.
 5. Open a video with captions and confirm the transcript and translation work.
@@ -51,17 +51,21 @@ If you prefer to do it yourself:
 
 Because this is an unpacked extension, it does not update automatically. After downloading an update or changing local files, click **Reload** on the DeepWatch card at `chrome://extensions`, then refresh open video tabs. Moving or deleting the source folder breaks the unpacked extension until you load it again from the new location.
 
-## Set up your Gemini API key (optional)
+## Set up an AI provider (optional)
 
-This step is optional. Transcript and Notes work fully without a key. DeepWatch only needs one, under your own Google account, for the AI features: overviews, explanations, translation, note polishing, and chat.
+This step is optional. Transcript and Notes work fully without a key. DeepWatch only needs one for the AI features: overviews, explanations, translation, note polishing, and chat.
 
-1. Open the official [Google AI Studio API keys page](https://aistudio.google.com/apikey).
-2. Sign in with your Google account and create an API key.
-3. Copy the key and paste it into **Gemini API key** in DeepWatch Settings.
-4. Optionally change **Gemini model** in Settings if you want a different model than the fast, low-cost default; see the [list of available Gemini models](https://ai.google.dev/gemini-api/docs/models).
-5. If Google reports a quota or billing issue, check your usage and limits in Google AI Studio and try again.
+Open **Settings** from the side panel (you can also open it from the DeepWatch card at `chrome://extensions`, or by right-clicking its toolbar icon), pick a **Provider**, and paste in a key:
 
-Open **Settings** from the side panel. You can also open the DeepWatch **Options** page from its card at `chrome://extensions` or by right-clicking its toolbar icon. Paste your key only into this Settings field. Never paste a key into an AI chat, repository file, screenshot, or public message.
+- **Google Gemini** (the default): create a key at [Google AI Studio](https://aistudio.google.com/apikey). Change **Model** in Settings for something other than the fast, low-cost default; see the [list of available Gemini models](https://ai.google.dev/gemini-api/docs/models).
+- **OpenAI**: create a key at [platform.openai.com](https://platform.openai.com/api-keys).
+- **Anthropic Claude**: create a key at [console.anthropic.com](https://console.anthropic.com/settings/keys).
+- **DeepSeek**: create a key at [platform.deepseek.com](https://platform.deepseek.com/api_keys).
+- **OpenRouter**: create a key at [openrouter.ai/keys](https://openrouter.ai/keys); this one endpoint can reach many other providers' models.
+- **Ollama (local)**: run your own [Ollama](https://ollama.com) server; no key needed for a default local setup.
+- **Custom**: for anything else (Azure OpenAI, a self-hosted endpoint, a provider not listed above), paste a small JSON object with `url`, `model`, and optionally `apiKey`, `headers`, and `format` (`"openai"`, `"anthropic"`, or `"gemini"`). Saving may prompt Chrome to grant access to that URL, which is expected for a new endpoint.
+
+Paste a key only into the Settings field for it. Never paste a key into an AI chat, repository file, screenshot, or public message.
 
 Keys and settings are stored in Chrome's local extension storage on your device.
 
@@ -83,7 +87,7 @@ Keys and settings are stored in Chrome's local extension storage on your device.
 - Original, Simplified Chinese, and aligned bilingual transcript views.
 - AI overviews, selected-text explanations, translation, automatic note polishing, and video-aware chat.
 - Local notes, local chat history per video, and a local cache for recent transcript and digest results.
-- Google Gemini for all AI features, with the model configurable in Settings.
+- Your choice of AI provider (Gemini, OpenAI, Anthropic, DeepSeek, OpenRouter, Ollama, or a custom endpoint) for all AI features, with the model configurable in Settings.
 
 Shorts, live streams, private or access-restricted videos, and videos without an available native transcript may not work. Firefox, Safari, mobile browsers, and other Chromium browsers are not currently tested or supported.
 
@@ -93,9 +97,9 @@ DeepWatch reads the transcript straight from the video's own page: the video pla
 
 Each supported site gets its own adapter file with the same shape, so support for another video site can be added without changing how the rest of the extension consumes a transcript.
 
-## Gemini pricing
+## AI provider pricing
 
-DeepWatch does not collect payments or resell access; your Gemini usage is billed directly by Google under your own account. Check the official [Gemini API pricing page](https://ai.google.dev/gemini-api/docs/pricing) for current rates for the model you choose in Settings, and set a spending limit in Google AI Studio if you want one.
+DeepWatch does not collect payments or resell access; your usage is billed directly by whichever provider you choose, under your own account there. Check that provider's own pricing page for current rates for the model you choose in Settings (for example, the [Gemini API pricing page](https://ai.google.dev/gemini-api/docs/pricing) for the default provider), and set a spending limit with that provider if it offers one. A local Ollama server has no usage cost beyond your own hardware.
 
 ## Remix it with your coding agent
 
@@ -112,17 +116,19 @@ DeepWatch uses plain HTML, CSS, and JavaScript with no build step, so it is a fr
 - Add optional local-model support for a different privacy and cost tradeoff.
 - Improve accessibility with keyboard navigation, font controls, and higher-contrast themes.
 
-If you want another AI provider or model, first open the exact DeepWatch project folder that Chrome loaded through **Load unpacked** in your coding agent. Then open DeepWatch Settings and use **Copy edited prompt** under **Local remix**. Replace the `[PROVIDER]` placeholder before sending it. Do not include any API key in the prompt or chat. After the agent updates your local copy, enter the key yourself in the Settings field it identifies.
+Settings already covers several providers directly, plus a **Custom** option for anything else that speaks an OpenAI-, Anthropic-, or Gemini-shaped API; try that first. For something genuinely different (a new request/response shape, a provider-specific quirk to work around), open the exact DeepWatch project folder that Chrome loaded through **Load unpacked** in your coding agent, then open DeepWatch Settings and use **Copy edited prompt** under **Local remix**. Replace the `[PROVIDER]` placeholder before sending it. Do not include any API key in the prompt or chat. After the agent updates your local copy, enter the key yourself in the Settings field it identifies.
 
 ## Credits
 
 DeepWatch is a fork and remix of [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/youtube-digest), MIT-licensed by Zara Zhang (see [LICENSE](LICENSE)). Most of DeepWatch's functionality, UI, and overall structure comes directly from that project: the Digest button, the Note button and its "n" keyboard shortcut, the Transcript/Overview/Notes tabs, the Original/Chinese/bilingual display modes, and the release tooling and test suite this fork builds on.
 
-This fork changes three things:
+This fork changes several things:
 
 - Transcript fetching no longer uses the Supadata API; it reads the transcript directly from the video's own page instead, at no cost and with no transcript API key (see `transcript/youtube.js`).
-- Every AI feature (overview, explanations, translation, note polishing) now runs on Google Gemini instead of DeepSeek, with the model configurable in Settings.
-- A Chat tab was added: a word-clickable subtitle view with click-to-seek and live highlighting, a per-video Gemini conversation, and JSON export.
+- The AI provider is no longer fixed to one service. Settings now offers Gemini (the default), OpenAI, Anthropic Claude, DeepSeek, OpenRouter, a local Ollama server, or a custom endpoint, each with its own request/response handling in `background.js`.
+- A Chat tab was added: a word-clickable subtitle view with click-to-seek and live highlighting, a per-video conversation, and JSON export.
+- Notes gained an editable, clearly-marked space for your own writing underneath the (unchanged) transcript excerpt, grouping by video, a one-click Markdown export, and a standalone full-page view (`notes.html`).
+- An API key of any kind is optional, not a precondition: Transcript and Notes work fully without one.
 
 Upstream (youtube-digest) does not accept issues or pull requests for this fork; if something here breaks, download your own copy and ask your coding agent to fix it, the same way youtube-digest's own README recommends.
 
@@ -131,11 +137,11 @@ Upstream (youtube-digest) does not accept issues or pull requests for this fork;
 DeepWatch makes provider requests directly from the extension:
 
 1. It reads the caption track list from the video player already open in your tab, and fetches the transcript directly from the video site.
-2. It sends the transcript and relevant video metadata to Gemini when you request AI features.
+2. It sends the transcript and relevant video metadata to your chosen AI provider when you request AI features.
 3. Focused features send only the content they need, such as selected text with context, small transcript batches for translation, or your chat messages.
 4. It stores your key, settings, notes, chat history, and recent cache entries locally in Chrome.
 
-There is no DeepWatch account system, advertising, analytics, or telemetry. Google still receives data under its own terms and privacy policy. See [PRIVACY.md](PRIVACY.md) for details.
+There is no DeepWatch account system, advertising, analytics, or telemetry. Your chosen AI provider still receives data under its own terms and privacy policy. See [PRIVACY.md](PRIVACY.md) for details.
 
 ## Troubleshooting
 

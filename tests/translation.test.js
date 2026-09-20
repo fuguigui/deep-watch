@@ -74,7 +74,7 @@ function loadBackgroundHelpers({
   settings = {
     provider: "gemini",
     aiApiKey: "test-key",
-    aiModel: "gemini-2.5-flash",
+    aiModel: "gemini-3.5-flash-lite",
   },
   fetchImpl = fetch,
   setTimeoutImpl = () => 0,
@@ -85,7 +85,7 @@ function loadBackgroundHelpers({
   },
 } = {}) {
   const listeners = { addListener() {} };
-  const localStorage = { ytd_settings: settings };
+  const localStorage = {};
   const sandbox = {
     console,
     URL,
@@ -126,14 +126,6 @@ function loadBackgroundHelpers({
       },
       tabs: { onUpdated: listeners, onActivated: listeners },
     },
-    YTD_SETTINGS: {
-      STORAGE_KEY: "ytd_settings",
-      normalize: (value) => value,
-      generateContentUrl: (model) =>
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      canonicalYouTubeUrl: (videoId) =>
-        `https://www.youtube.com/watch?v=${videoId}`,
-    },
     // background.js only touches this inside handleFetchTranscript, which
     // none of these tests call directly (they hit the exact-selected-text
     // path or mock fetch themselves) — a stub is enough to satisfy load.
@@ -145,6 +137,11 @@ function loadBackgroundHelpers({
     },
   };
   sandbox.globalThis = sandbox;
+  // Run the real settings.js so PROVIDER_PRESETS/resolveProvider/normalize
+  // stay in sync with production automatically, instead of a hand-written
+  // mock that would silently drift from it.
+  vm.runInNewContext(read("settings.js"), sandbox);
+  localStorage[sandbox.YTD_SETTINGS.STORAGE_KEY] = settings;
   vm.runInNewContext(read("background.js"), sandbox);
   return sandbox.__YTD_TRANSLATION_TESTING__;
 }

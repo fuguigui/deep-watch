@@ -15,21 +15,30 @@ test("manifest uses minimized install-time permissions", () => {
   assert.equal(packageJson.version, manifest.version);
   assert.equal(manifest.options_ui.page, "options.html");
   assert.ok(!manifest.permissions.includes("activeTab"));
-  assert.ok(
-    manifest.host_permissions.includes(
-      "https://generativelanguage.googleapis.com/*",
-    ),
-  );
   assert.ok(manifest.host_permissions.includes("https://www.youtube.com/*"));
   // No transcript-service host: transcripts are read straight from the
   // video's own page (see transcript/youtube.js), not a third-party API.
   assert.ok(
     !manifest.host_permissions.some((origin) => origin.includes("supadata")),
   );
-  assert.ok(
-    !manifest.host_permissions.some((origin) => origin.includes("deepseek")),
-  );
-  assert.equal(Object.hasOwn(manifest, "optional_host_permissions"), false);
+  // One fixed host per built-in AI provider (DeepSeek is a legitimate
+  // provider choice again, alongside the others — see settings.js).
+  for (const host of [
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.openai.com/*",
+    "https://api.anthropic.com/*",
+    "https://api.deepseek.com/*",
+    "https://openrouter.ai/*",
+    "http://localhost/*",
+  ]) {
+    assert.ok(
+      manifest.host_permissions.includes(host),
+      `Expected host_permissions to include ${host}`,
+    );
+  }
+  // A Custom provider's URL is arbitrary, so its origin is requested at
+  // runtime (see options.js) rather than declared at install time.
+  assert.deepEqual(manifest.optional_host_permissions, ["*://*/*"]);
 });
 
 test("release copy documents current scope without em dashes", () => {
@@ -96,12 +105,12 @@ test("release copy documents current scope without em dashes", () => {
   assert.match(chineseReadme, /不接受上游 Issue 或 Pull Request/);
   assert.match(chineseReadme, /增加更多翻译语言/);
 
-  // No third-party transcript service or DeepSeek-specific pricing/setup
-  // copy should remain anywhere published: transcripts are free and direct
-  // from the video's own page, and every AI feature now runs on Gemini.
-  // A one-time, historical mention of both in the README's Credits section
-  // (explaining what this fork changed from youtube-digest) is fine — only
-  // the old setup/pricing instructions must be gone.
+  // No third-party transcript service copy should remain anywhere
+  // published: transcripts are free and direct from the video's own page,
+  // regardless of which AI provider is configured. A one-time, historical
+  // mention of Supadata in the README's Credits section (explaining what
+  // this fork changed from youtube-digest) is fine — only the old
+  // sign-up/setup instructions must be gone.
   const publishedDocs = [
     readme,
     chineseReadme,
@@ -111,13 +120,6 @@ test("release copy documents current scope without em dashes", () => {
   ].join("\n");
   assert.doesNotMatch(publishedDocs, /supadata\.ai/i);
   assert.doesNotMatch(publishedDocs, /Supadata API key/i);
-  assert.doesNotMatch(publishedDocs, /platform\.deepseek\.com/i);
-  assert.doesNotMatch(publishedDocs, /api-docs\.deepseek\.com/i);
-  assert.doesNotMatch(publishedDocs, /DeepSeek API key/i);
-  assert.doesNotMatch(publishedDocs, /custom OpenAI-compatible/i);
-  assert.doesNotMatch(publishedDocs, /optional custom-origin/i);
-  assert.doesNotMatch(publishedDocs, /chosen AI provider/i);
-  assert.doesNotMatch(publishedDocs, /configure a different OpenAI-compatible/i);
   assert.match(readme, /fork and remix of \[zarazhangrui\/youtube-digest\]/);
   assert.match(
     readme,
@@ -145,8 +147,11 @@ test("release copy documents current scope without em dashes", () => {
   const optionsPage = read("options.html");
   const optionsStyles = read("options.css");
   const optionsScript = read("options.js");
-  assert.match(optionsPage, /aistudio\.google\.com\/apikey/i);
-  assert.doesNotMatch(optionsPage, /<select\b/i);
+  // The Gemini key-creation link is set at runtime (options.js swaps it per
+  // provider), not hardcoded in the HTML, so check the live URL is known
+  // to the script instead of grepping the page source for it.
+  assert.match(optionsScript, /https:\/\/aistudio\.google\.com\/apikey/i);
+  assert.match(optionsPage, /id="aiProviderSelect"/);
   assert.doesNotMatch(optionsPage, /id="(?:provider|aiBaseUrl|supadataApiKey)"/);
   assert.match(optionsPage, /id="aiModel"/);
   const detailsTag = optionsPage.match(
@@ -185,14 +190,21 @@ test("release copy documents current scope without em dashes", () => {
   assert.match(readme, /vocabulary notebook/i);
   assert.match(
     readme,
-    /first open the exact DeepWatch project folder that Chrome loaded through \*\*Load unpacked\*\* in your coding agent/,
+    /open the exact DeepWatch project folder that Chrome loaded through \*\*Load unpacked\*\* in your coding agent/,
   );
   assert.match(
     chineseReadme,
     /先在编程 Agent 中打开 Chrome 通过「加载已解压的扩展程序」使用的那个准确的 DeepWatch 项目文件夹/,
   );
 
-  assert.match(readme, /Google Gemini for all AI features/i);
+  assert.match(readme, /^## Set up an AI provider \(optional\)$/m);
+  assert.match(readme, /Google Gemini.*\(the default\)/i);
+  assert.match(readme, /OpenAI/);
+  assert.match(readme, /Anthropic Claude/);
+  assert.match(readme, /DeepSeek/);
+  assert.match(readme, /OpenRouter/);
+  assert.match(readme, /Ollama/);
+  assert.match(readme, /Custom/);
 });
 
 test("product UI contains no emoji or emoji-like pictographs", () => {
@@ -289,9 +301,13 @@ test("runtime has no source-file credential dependency or retired model", () => 
 
   assert.doesNotMatch(runtime, /\bCONFIG\./);
   assert.doesNotMatch(runtime, /importScripts\(["']config\.js/);
-  assert.doesNotMatch(runtime, /deepseek/i);
+  // DeepSeek is a legitimate provider choice again (see settings.js's
+  // PROVIDER_PRESETS) — only Supadata (the removed transcript service) and
+  // the retired deepseek-only chat/completions URL builder stay banned.
   assert.doesNotMatch(runtime, /supadata/i);
-  assert.match(runtime, /gemini-2\.5-flash/);
+  assert.doesNotMatch(runtime, /chatCompletionsUrl/);
+  assert.match(runtime, /gemini-3\.5-flash-lite/);
+  assert.match(runtime, /deepseek-chat/);
 });
 
 test("a missing Gemini key is optional, never a precondition for Transcript or Notes", () => {
@@ -301,20 +317,24 @@ test("a missing Gemini key is optional, never a precondition for Transcript or N
 
   // Startup must never gate the whole panel on whether a key is configured
   // — it used to call checkConfig and bail out to a full-screen error
-  // before Transcript or Notes ever got a chance to load.
-  assert.doesNotMatch(sidepanelSource, /hasAiKey/);
-  assert.doesNotMatch(sidepanelSource, /showConfigError/);
-  assert.match(
-    sidepanelSource,
-    /DOMContentLoaded[\s\S]{0,600}await checkCurrentTab\(\);\n\}\)/,
+  // before Transcript or Notes ever got a chance to load. (hasAiKey itself
+  // is fine elsewhere — e.g. the Chat tab's non-blocking "add a key" hint —
+  // just not gating DOMContentLoaded.)
+  const startupHandlerMatch = sidepanelSource.match(
+    /document\.addEventListener\("DOMContentLoaded",[\s\S]{0,600}?\n\}\);/,
   );
+  assert.ok(startupHandlerMatch, "Expected to find the DOMContentLoaded handler");
+  assert.doesNotMatch(startupHandlerMatch[0], /hasAiKey/);
+  assert.doesNotMatch(startupHandlerMatch[0], /showConfigError/);
+  assert.match(startupHandlerMatch[0], /await checkCurrentTab\(\);/);
+  assert.doesNotMatch(sidepanelSource, /function showConfigError/);
 
   // Saving Settings must accept an empty key (opting out of AI features)
   // rather than refusing to save until one is entered.
   assert.doesNotMatch(optionsSource, /addGeminiKey/);
   assert.match(
     optionsSource,
-    /async function saveSettings\(event\) \{[\s\S]{0,600}await storage\.set/,
+    /async function saveSettings\(event\) \{[\s\S]{0,1400}await storage\.set/,
   );
 
   // Reading, deleting, or fetching a transcript must never depend on an AI

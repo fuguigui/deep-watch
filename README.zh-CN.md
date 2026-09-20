@@ -10,9 +10,9 @@
 - 在 Chat 标签页里选中字幕中的任意词句提问，或直接自由提问；支持点词跳转视频位置，并随播放实时高亮当前朗读的词。
 - 通过点击 Transcript、Overview、Notes 或 Chat 里的时间戳，在长视频中快速跳转。
 - 保存整理好的时间戳笔记留待复习，也可以按视频导出聊天记录。
-- 使用你自己的 Gemini API 密钥和本地 Chrome 存储掌控数据，没有分析或遥测。
+- 使用你自己选择的 AI 服务的 API 密钥和本地 Chrome 存储掌控数据，没有分析或遥测。
 
-Gemini API 密钥是可选的，不是必须条件：字幕和笔记功能不需要任何密钥就能完整使用。只有 AI 相关功能（概览、翻译、划词解释、Chat）才需要密钥，没配置的话，这几个功能会各自提示你去设置页面添加，不会影响其他功能。
+API 密钥是可选的，不是必须条件：字幕和笔记功能不需要任何密钥就能完整使用。只有 AI 相关功能（概览、翻译、划词解释、Chat）才需要密钥，没配置的话，这几个功能会各自提示你去设置页面添加，不会影响其他功能。设置页面支持 Google Gemini（默认）、OpenAI、Anthropic Claude、DeepSeek、OpenRouter、本地 Ollama 服务器，或者你用一小段 JSON 自行配置的自定义接口。
 
 DeepWatch 是一个从 GitHub 本地安装、使用你自己 API 密钥的项目。它不在 Chrome 网上应用店上架，不附带 API 额度，也不运行开发者自己的服务器。
 
@@ -27,7 +27,7 @@ DeepWatch 是 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/yout
 你的 Agent 应该做到：
 
 1. 询问你想把项目放在哪里，下载或克隆到那里，并告诉你准确的完整路径。如果你需要建议，可以在 macOS 或 Linux 上提议 `~/Documents/deep-watch`，在 Windows 上提议 `%USERPROFILE%\Documents\deep-watch`。
-2. 打开下面的 Google AI Studio 官方页面，帮你创建自己的 Gemini API 密钥。
+2. 帮你为你想用的 AI 服务创建一个 API 密钥（默认的 Gemini 服务可以去 Google AI Studio，其他服务去它们各自的官网）。
 3. 带你在 Chrome 里用「加载已解压的扩展程序」选择你刚才确定的那个准确项目文件夹。
 4. 告诉你该在扩展的「设置」页面里的哪个位置填写 API 密钥。
 5. 打开一个带字幕的视频，确认字幕和翻译功能正常。
@@ -51,17 +51,21 @@ DeepWatch 是 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/yout
 
 因为这是一个未打包的扩展，它不会自动更新。每次下载更新或修改本地文件后，请在 `chrome://extensions` 的 DeepWatch 卡片上点击「重新加载」，然后刷新已打开的视频标签页。移动或删除源代码文件夹，会导致已加载的扩展失效，需要从新的位置重新加载。
 
-## 配置你的 Gemini API 密钥（可选）
+## 配置一个 AI 服务（可选）
 
-这一步是可选的，字幕和笔记功能不需要任何密钥就能完整使用。DeepWatch 只在使用 AI 相关功能（生成概览、解释内容、翻译字幕、润色笔记、聊天）时，才需要一个属于你自己 Google 账号的密钥。
+这一步是可选的，字幕和笔记功能不需要任何密钥就能完整使用。DeepWatch 只在使用 AI 相关功能（生成概览、解释内容、翻译字幕、润色笔记、聊天）时才需要密钥。
 
-1. 打开官方的 [Google AI Studio API 密钥页面](https://aistudio.google.com/apikey)。
-2. 用你的 Google 账号登录并创建一个 API 密钥。
-3. 复制密钥，粘贴到 DeepWatch 设置页面的「Gemini API key」里。
-4. 如果不想用默认的快速低成本模型，可以在设置页面里修改「Gemini model」；可参考[可用的 Gemini 模型列表](https://ai.google.dev/gemini-api/docs/models)。
-5. 如果 Google 提示配额或账单问题，请到 Google AI Studio 检查你的用量和限额后再试。
+从侧边栏打开「设置」（也可以在 `chrome://extensions` 的 DeepWatch 卡片上，或右键点击工具栏图标打开），选择一个「服务」，然后填入密钥：
 
-从侧边栏打开「设置」。你也可以在 `chrome://extensions` 的 DeepWatch 卡片上，或右键点击工具栏图标，打开 DeepWatch 的「选项」页面。只在这个设置字段里粘贴密钥。不要把密钥粘贴进 AI 聊天、仓库文件、截图或公开消息里。
+- **Google Gemini**（默认）：在 [Google AI Studio](https://aistudio.google.com/apikey) 创建密钥。想用比默认更强的模型，可以在设置页面里修改「模型」；可参考[可用的 Gemini 模型列表](https://ai.google.dev/gemini-api/docs/models)。
+- **OpenAI**：在 [platform.openai.com](https://platform.openai.com/api-keys) 创建密钥。
+- **Anthropic Claude**：在 [console.anthropic.com](https://console.anthropic.com/settings/keys) 创建密钥。
+- **DeepSeek**：在 [platform.deepseek.com](https://platform.deepseek.com/api_keys) 创建密钥。
+- **OpenRouter**：在 [openrouter.ai/keys](https://openrouter.ai/keys) 创建密钥；这一个接口可以转接很多其他服务的模型。
+- **Ollama（本地）**：自己运行一个 [Ollama](https://ollama.com) 服务器；默认的本地设置通常不需要密钥。
+- **自定义**：适用于上面没列出的情况（比如 Azure OpenAI、自建接口，或其他服务）：填入一小段 JSON，包含 `url`、`model`，以及可选的 `apiKey`、`headers` 和 `format`（`"openai"`、`"anthropic"` 或 `"gemini"`）。保存时可能会让 Chrome 弹出授权提示，对一个新接口来说这是正常的。
+
+只在对应的设置字段里粘贴密钥。不要把密钥粘贴进 AI 聊天、仓库文件、截图或公开消息里。
 
 密钥和设置都保存在你设备上 Chrome 的本地扩展存储中。
 
@@ -83,7 +87,7 @@ DeepWatch 是 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/yout
 - 原文、简体中文，以及对齐的双语字幕视图。
 - AI 概览、划词解释、翻译、自动笔记润色，以及懂视频内容的聊天功能。
 - 本地笔记、按视频保存的本地聊天记录，以及最近字幕和摘要结果的本地缓存。
-- 所有 AI 功能统一使用 Google Gemini，模型可在设置页面里配置。
+- 所有 AI 功能都可以选择你想用的服务（Gemini、OpenAI、Anthropic、DeepSeek、OpenRouter、Ollama，或自定义接口），模型可在设置页面里配置。
 
 Shorts 短视频、直播、私享或受限访问的视频，以及没有原生字幕的视频可能无法使用。目前未测试或不支持 Firefox、Safari、移动端浏览器和其他 Chromium 浏览器。
 
@@ -93,9 +97,9 @@ DeepWatch 直接从视频所在网页读取字幕：视频播放器一加载完�
 
 每个支持的网站都有自己独立的一个适配器文件，返回同样的数据格式，因此以后要支持新的视频网站，只需要新增一个文件，不需要改动其余部分如何使用字幕数据的逻辑。
 
-## Gemini 计费说明
+## AI 服务计费说明
 
-DeepWatch 不收取任何费用，也不转售访问权限；你的 Gemini 用量由 Google 直接根据你自己的账号计费。请查看官方的 [Gemini API 价格页面](https://ai.google.dev/gemini-api/docs/pricing)，了解你在设置里选择的模型当前的价格，如果需要，也可以在 Google AI Studio 里设置消费限额。
+DeepWatch 不收取任何费用，也不转售访问权限；你的用量由你选择的服务直接根据你自己的账号计费。请查看该服务自己的价格页面，了解你在设置里选择的模型当前的价格（比如默认服务可参考官方的 [Gemini API 价格页面](https://ai.google.dev/gemini-api/docs/pricing)），如果该服务支持，也可以设置消费限额。本地运行的 Ollama 除了你自己的硬件成本外没有额外费用。
 
 ## 用编程 Agent 改造它
 
@@ -112,17 +116,19 @@ DeepWatch 使用纯 HTML、CSS 和 JavaScript，没有构建步骤，很适合�
 - 增加可选的本地模型支持，获得不同的隐私和成本权衡。
 - 增加键盘导航、字体控制和更高对比度的主题，提升可访问性。
 
-如果你想换成另一个 AI 服务或模型，请先在编程 Agent 中打开 Chrome 通过「加载已解压的扩展程序」使用的那个准确的 DeepWatch 项目文件夹。然后打开 DeepWatch 设置，在「本地改造」里使用「复制编辑后的提示词」。发送前请把 `[PROVIDER]` 替换掉。不要在提示词或聊天中包含任何 API 密钥。等 Agent 更新完你的本地副本后，再按它指出的位置自己填写密钥。
+设置页面里已经直接支持好几个服务，外加一个「自定义」选项，可以接入任何符合 OpenAI、Anthropic 或 Gemini 请求格式的接口，建议先试试这个。如果你需要的是真正不一样的东西（全新的请求/响应格式，或者某个服务的特殊限制需要绕过），请先在编程 Agent 中打开 Chrome 通过「加载已解压的扩展程序」使用的那个准确的 DeepWatch 项目文件夹。然后打开 DeepWatch 设置，在「本地改造」里使用「复制编辑后的提示词」。发送前请把 `[PROVIDER]` 替换掉。不要在提示词或聊天中包含任何 API 密钥。等 Agent 更新完你的本地副本后，再按它指出的位置自己填写密钥。
 
 ## 致谢
 
 DeepWatch 是 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/youtube-digest) 的一个 fork 改造项目，原项目由 Zara Zhang 以 MIT 协议开源（见 [LICENSE](LICENSE)）。DeepWatch 的大部分功能、界面和整体结构都直接来自这个项目：Digest 按钮、Note 按钮和它的 "n" 键快捷方式、Transcript / Overview / Notes 三个标签页、原文 / 中文 / 双语这几种显示模式，以及这个 fork 继续沿用的发布工具和测试用例。
 
-这个 fork 主要改了三件事：
+这个 fork 主要改了几件事：
 
 - 字幕抓取不再依赖 Supadata API，改成直接从视频所在网页读取字幕，完全免费，也不需要字幕 API 密钥（见 `transcript/youtube.js`）。
-- 所有 AI 功能（概览、解释、翻译、笔记润色）从 DeepSeek 换成了 Google Gemini，模型可以在设置页面里配置。
-- 新增了 Chat 标签页：可以逐词点击的字幕视图、点词跳转、实时高亮，按视频保存的 Gemini 对话，以及导出为 JSON。
+- AI 服务不再固定成一家。设置页面现在提供 Gemini（默认）、OpenAI、Anthropic Claude、DeepSeek、OpenRouter、本地 Ollama 服务器，或者自定义接口，每种在 `background.js` 里都有自己的请求/响应处理逻辑。
+- 新增了 Chat 标签页：可以逐词点击的字幕视图、点词跳转、实时高亮，按视频保存的对话，以及导出为 JSON。
+- 笔记新增了一块可编辑的、和原文明确区分开的自己写的内容区域（放在不变的原文摘录下面），支持按视频分组、一键导出为 Markdown，以及一个独立的全页视图（`notes.html`）。
+- 任何一种 API 密钥都是可选项，不是必须条件，字幕和笔记功能完全不需要密钥就能用。
 
 上游（youtube-digest）不接受针对这个 fork 的 Issue 或 Pull Request；如果这里出了问题，请按 youtube-digest 自己 README 里建议的方式，下载自己的副本，让编程 Agent 帮你修复。
 
@@ -131,11 +137,11 @@ DeepWatch 是 [zarazhangrui/youtube-digest](https://github.com/zarazhangrui/yout
 DeepWatch 直接从扩展本身发起请求：
 
 1. 它从你标签页里已经打开的视频播放器读取字幕轨道列表，并直接从视频所在网站抓取字幕。
-2. 当你使用 AI 功能时，它会把字幕和相关视频元数据发送给 Gemini。
+2. 当你使用 AI 功能时，它会把字幕和相关视频元数据发送给你选择的那个 AI 服务。
 3. 各个功能只发送它需要的内容，比如带上下文的选中文本、用于翻译的小批量字幕，或者你的聊天消息。
 4. 它把你的密钥、设置、笔记、聊天记录和最近的缓存内容都保存在本地 Chrome 中。
 
-DeepWatch 没有账号系统、广告、分析或遥测。Google 仍会按照它自己的条款和隐私政策处理这些数据。详见 [PRIVACY.md](PRIVACY.md)。
+DeepWatch 没有账号系统、广告、分析或遥测。你选择的 AI 服务仍会按照它自己的条款和隐私政策处理这些数据。详见 [PRIVACY.md](PRIVACY.md)。
 
 ## 疑难排查
 

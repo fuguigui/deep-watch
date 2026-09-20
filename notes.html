@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DeepWatch Notes</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+    <link rel="stylesheet" href="notes.css" />
+  </head>
+  <body>
+    <main class="notes-page">
+      <header class="notes-page-header">
+        <div>
+          <div class="eyebrow">DeepWatch</div>
+          <h1>All Notes</h1>
+        </div>
+        <div class="notes-page-actions">
+          <button class="enhance-btn" id="exportNotesBtn">Export notes</button>
+        </div>
+      </header>
+
+      <div class="notes-page-search">
+        <input
+          id="notesSearchInput"
+          type="search"
+          placeholder="Search notes and videos"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      </div>
+
+      <p class="notes-intro" id="notesIntro" style="display: none">
+        No notes saved yet. Hover over a video and click Note to save one.
+      </p>
+
+      <div id="notesGroups"></div>
+    </main>
+
+    <script src="settings.js"></script>
+    <script src="notes.js"></script>
+  </body>
+</html>

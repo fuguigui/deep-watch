@@ -25,19 +25,20 @@ There is no guaranteed response time or bug-bounty program. Please allow a reaso
 Examples include:
 
 - API keys or private content included in source, logs, screenshots, or release ZIPs;
-- requests to network origins outside the documented video-site and Gemini hosts;
+- requests to network origins outside the documented video-site and AI provider hosts (including a Custom provider reaching further than the one origin it was granted);
 - script or HTML injection through transcript, metadata, service errors, or model output;
 - access to browsing data outside the documented video-site scope;
 - unintended transmission of notes, transcripts, chat history, or credentials;
 - a dependency or release-workflow compromise; and
-- bypasses of local data deletion or Gemini configuration controls.
+- bypasses of local data deletion or AI provider configuration controls.
 
 ## User security guidance
 
 - Install only from a GitHub source or release you trust.
 - Review changes and the packaged file list before loading an update.
-- Use a dedicated, scoped Gemini API key where possible and set a spending limit in Google AI Studio.
+- Use a dedicated, scoped API key where your provider supports one, and set a spending limit if it offers one (e.g. Google AI Studio for Gemini).
 - Do not reuse keys from production systems.
+- For a Custom provider, review the JSON config you paste in — it is sent as-is (URL, headers, and all) to build each request.
 - Revoke keys immediately if a device, browser profile, ZIP, log, or screenshot exposes them.
 - Remember that Chrome local extension storage is not an encrypted password vault.
 

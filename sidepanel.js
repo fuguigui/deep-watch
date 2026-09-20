@@ -458,6 +458,14 @@ function setupEventListeners() {
     setNotesFilter(true);
     loadNotes(null); // Load all notes
   });
+  document
+    .getElementById("openAllNotesBtn")
+    ?.addEventListener("click", () => {
+      chrome.tabs.create({ url: chrome.runtime.getURL("notes.html") });
+    });
+  document
+    .getElementById("exportNotesBtn")
+    ?.addEventListener("click", exportNotes);
 
   setupChatEventListeners();
 }
@@ -1350,8 +1358,35 @@ function copyTranscript() {
   copyToClipboardWithFeedback(getDisplayedTranscriptText(), "copyTranscriptBtn");
 }
 
+/**
+ * Same content as getDisplayedTranscriptText(), but with each line's start
+ * time prefixed — used for export, where a timestamp is worth the extra
+ * width; copy-to-clipboard stays plain text for pasting into other tools.
+ */
+function getTimestampedTranscriptText() {
+  if (currentTranscriptMode === "original") {
+    return (currentTranscript || [])
+      .map((entry) => `[${formatSecondsAsTimestamp(entry.start)}] ${entry.text}`)
+      .join("\n");
+  }
+  return getActiveTranscriptSegments()
+    .map((segment) => {
+      const translated = transcriptParagraphCache.get(
+        transcriptTranslationCacheKey(segment),
+      );
+      const text =
+        currentTranscriptMode === "zh"
+          ? translated || segment.text
+          : translated
+            ? `${segment.text}\n${translated}`
+            : segment.text;
+      return `[${formatSecondsAsTimestamp(segment.start)}] ${text}`;
+    })
+    .join("\n\n");
+}
+
 function exportTranscript() {
-  const transcriptContent = getDisplayedTranscriptText();
+  const transcriptContent = getTimestampedTranscriptText();
   const videoUrl = `https://youtube.com/watch?v=${currentVideoId}`;
 
   let exportText = "";
@@ -1453,6 +1488,7 @@ function switchTab(tabName) {
     startPlaybackTracking();
   } else if (tabName === "chat") {
     startPlaybackTracking();
+    void maybeShowChatKeyHint();
   } else {
     stopPlaybackTracking();
   }
@@ -2104,7 +2140,10 @@ async function loadNotes(videoId) {
 }
 
 /**
- * Renders the notes list in the Notes tab.
+ * Renders the notes list in the Notes tab. When showing every video's notes
+ * (no filter), they're grouped under a heading per video instead of one
+ * long flat list, so studying past videos doesn't mean scrolling through
+ * everything at once.
  */
 function renderNotes(notes, filteredVideoId) {
   const notesList = document.getElementById("notesList");
@@ -2124,91 +2163,162 @@ function renderNotes(notes, filteredVideoId) {
 
   notesIntro.style.display = "none";
 
-  notes.forEach((note, index) => {
-    const translationId = getNoteTranslationId(note, index);
-    const noteEl = document.createElement("div");
-    noteEl.className = "note-item";
-    noteEl.innerHTML = `
-      <div class="note-header">
-        <span class="note-timestamp" data-url="${escapeHtml(note.timestampedUrl)}" data-seconds="${Number(note.timestampSeconds) || 0}">${escapeHtml(note.timestamp)}</span>
-        ${!filteredVideoId ? `<span class="note-video-title">${escapeHtml(note.videoTitle)}</span>` : ""}
-      </div>
-      <div class="note-text">${renderLocalizedContent(note.text, "notes", translationId)}</div>
-      <div class="note-actions">
-        <button class="note-action-btn note-copy-text">Copy text</button>
-        <button class="note-action-btn note-copy-link" data-url="${escapeHtml(note.timestampedUrl)}">Copy timestamp</button>
-        <button class="note-action-btn note-play" data-seconds="${Number(note.timestampSeconds) || 0}">Play</button>
-        <button class="note-delete" data-id="${escapeHtml(note.id)}" type="button" aria-label="Delete note" title="Delete note">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M3 6h18"></path>
-            <path d="M8 6V4h8v2"></path>
-            <path d="m19 6-1 14H6L5 6"></path>
-            <path d="M10 11v5"></path>
-            <path d="M14 11v5"></path>
-          </svg>
-        </button>
-      </div>
-    `;
-
-    // Timestamp click - play from this point (in this tab or a new one)
-    noteEl.querySelector(".note-timestamp").addEventListener("click", () => {
-      playNote(note);
+  if (filteredVideoId) {
+    notes.forEach((note, index) => {
+      notesList.appendChild(createNoteElement(note, index, filteredVideoId));
     });
-
-    // Delete button
-    noteEl
-      .querySelector(".note-delete")
-      .addEventListener("click", async (e) => {
-        e.stopPropagation();
-        await deleteNote(note.id);
-        loadNotes(filteredVideoId);
+  } else {
+    // Group by video, most-recently-noted video first (notes already arrive
+    // newest-first, and groupNotesByVideo keeps first-seen order).
+    for (const group of groupNotesByVideo(notes)) {
+      const groupEl = document.createElement("div");
+      groupEl.className = "note-group";
+      groupEl.innerHTML = `<div class="note-group-title">${escapeHtml(group.videoTitle || "Untitled video")}</div>`;
+      group.notes.forEach((note, index) => {
+        groupEl.appendChild(
+          createNoteElement(note, index, group.videoId, true),
+        );
       });
-
-    // Copy text button — copies just the note's text
-    noteEl
-      .querySelector(".note-copy-text")
-      .addEventListener("click", async () => {
-        try {
-          await navigator.clipboard.writeText(
-            getLocalizedPlainText(note.text, "notes", translationId),
-          );
-          const btn = noteEl.querySelector(".note-copy-text");
-          btn.textContent = "Copied";
-          setTimeout(() => {
-            btn.textContent = "Copy text";
-          }, 2000);
-        } catch (err) {
-          console.error("Copy failed:", err);
-        }
-      });
-
-    // Copy timestamp button — copies the timestamped YouTube link
-    noteEl
-      .querySelector(".note-copy-link")
-      .addEventListener("click", async () => {
-        try {
-          await navigator.clipboard.writeText(note.timestampedUrl);
-          const btn = noteEl.querySelector(".note-copy-link");
-          btn.textContent = "Copied";
-          setTimeout(() => {
-            btn.textContent = "Copy timestamp";
-          }, 2000);
-        } catch (err) {
-          console.error("Copy failed:", err);
-        }
-      });
-
-    // Play button (in this tab if it's the current video, else a new tab)
-    noteEl.querySelector(".note-play").addEventListener("click", () => {
-      playNote(note);
-    });
-
-    notesList.appendChild(noteEl);
-  });
+      notesList.appendChild(groupEl);
+    }
+  }
 
   if (currentTranscriptMode !== "original" && resultTabIsActive("notes")) {
     void translateNotesContent();
   }
+}
+
+/**
+ * Builds one note's DOM element: the transcript excerpt (immutable, shown
+ * in quotes to mark it as the video's own words) plus the person's own
+ * writing underneath, which Edit lets them add to or change freely.
+ */
+function createNoteElement(note, index, groupKey, hideVideoTitle) {
+  const translationId = getNoteTranslationId(note, `${groupKey}-${index}`);
+  const noteEl = document.createElement("div");
+  noteEl.className = "note-item";
+  noteEl.innerHTML = `
+    <div class="note-header">
+      <span class="note-timestamp" data-url="${escapeHtml(note.timestampedUrl)}" data-seconds="${Number(note.timestampSeconds) || 0}">${escapeHtml(note.timestamp)}</span>
+      ${!hideVideoTitle ? `<span class="note-video-title">${escapeHtml(note.videoTitle)}</span>` : ""}
+    </div>
+    <div class="note-original-text">${renderLocalizedContent(note.text, "notes", translationId)}</div>
+    <div class="note-user-text" ${note.userNote ? "" : 'style="display: none"'}>${escapeHtml(note.userNote || "")}</div>
+    <div class="note-edit-area" style="display: none">
+      <textarea class="note-edit-textarea" placeholder="Add your own notes here…">${escapeHtml(note.userNote || "")}</textarea>
+      <div class="note-edit-actions">
+        <button class="note-action-btn note-edit-save">Save</button>
+        <button class="note-action-btn note-edit-cancel">Cancel</button>
+      </div>
+    </div>
+    <div class="note-actions">
+      <button class="note-action-btn note-edit">${note.userNote ? "Edit note" : "Add note"}</button>
+      <button class="note-action-btn note-copy-text">Copy text</button>
+      <button class="note-action-btn note-copy-link" data-url="${escapeHtml(note.timestampedUrl)}">Copy timestamp</button>
+      <button class="note-action-btn note-play" data-seconds="${Number(note.timestampSeconds) || 0}">Play</button>
+      <button class="note-delete" data-id="${escapeHtml(note.id)}" type="button" aria-label="Delete note" title="Delete note">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 6h18"></path>
+          <path d="M8 6V4h8v2"></path>
+          <path d="m19 6-1 14H6L5 6"></path>
+          <path d="M10 11v5"></path>
+          <path d="M14 11v5"></path>
+        </svg>
+      </button>
+    </div>
+  `;
+
+  // Timestamp click - play from this point (in this tab or a new one)
+  noteEl.querySelector(".note-timestamp").addEventListener("click", () => {
+    playNote(note);
+  });
+
+  // Delete button
+  noteEl.querySelector(".note-delete").addEventListener("click", async (e) => {
+    e.stopPropagation();
+    await deleteNote(note.id);
+    loadNotes(currentNotesFilterVideoId);
+  });
+
+  // Copy text button — copies the transcript excerpt plus any of the
+  // person's own writing, so a paste elsewhere carries the whole note.
+  noteEl.querySelector(".note-copy-text").addEventListener("click", async () => {
+    try {
+      const original = getLocalizedPlainText(note.text, "notes", translationId);
+      const combined = note.userNote ? `${original}\n\n${note.userNote}` : original;
+      await navigator.clipboard.writeText(combined);
+      const btn = noteEl.querySelector(".note-copy-text");
+      btn.textContent = "Copied";
+      setTimeout(() => {
+        btn.textContent = "Copy text";
+      }, 2000);
+    } catch (err) {
+      console.error("Copy failed:", err);
+    }
+  });
+
+  // Copy timestamp button — copies the timestamped YouTube link
+  noteEl.querySelector(".note-copy-link").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(note.timestampedUrl);
+      const btn = noteEl.querySelector(".note-copy-link");
+      btn.textContent = "Copied";
+      setTimeout(() => {
+        btn.textContent = "Copy timestamp";
+      }, 2000);
+    } catch (err) {
+      console.error("Copy failed:", err);
+    }
+  });
+
+  // Play button (in this tab if it's the current video, else a new tab)
+  noteEl.querySelector(".note-play").addEventListener("click", () => {
+    playNote(note);
+  });
+
+  // Edit button — reveals a textarea under the (unchanged) transcript
+  // excerpt for the person's own writing.
+  const editArea = noteEl.querySelector(".note-edit-area");
+  const userTextEl = noteEl.querySelector(".note-user-text");
+  const textarea = noteEl.querySelector(".note-edit-textarea");
+  noteEl.querySelector(".note-edit").addEventListener("click", () => {
+    editArea.style.display = "block";
+    userTextEl.style.display = "none";
+    textarea.focus();
+  });
+  noteEl.querySelector(".note-edit-cancel").addEventListener("click", () => {
+    textarea.value = note.userNote || "";
+    editArea.style.display = "none";
+    userTextEl.style.display = note.userNote ? "block" : "none";
+  });
+  noteEl.querySelector(".note-edit-save").addEventListener("click", async () => {
+    const saveBtn = noteEl.querySelector(".note-edit-save");
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving…";
+    try {
+      const result = await chrome.runtime.sendMessage({
+        action: "updateNote",
+        noteId: note.id,
+        userNote: textarea.value,
+      });
+      if (result?.success) {
+        note.userNote = result.note?.userNote || "";
+        userTextEl.textContent = note.userNote;
+        userTextEl.style.display = note.userNote ? "block" : "none";
+        editArea.style.display = "none";
+        noteEl.querySelector(".note-edit").textContent = note.userNote
+          ? "Edit note"
+          : "Add note";
+      }
+    } catch (err) {
+      console.error("[DeepWatch] Update note error:", err);
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Save";
+    }
+  });
+
+  return noteEl;
 }
 
 /**
@@ -2222,6 +2332,78 @@ async function deleteNote(noteId) {
     });
   } catch (error) {
     console.error("[YouTube Digest Panel] Delete note error:", error);
+  }
+}
+
+/**
+ * Groups a flat notes list by video, preserving the storage order (newest
+ * note first) as the order videos appear in. Shared by the notes export
+ * and the grouped "All Notes" rendering.
+ */
+function groupNotesByVideo(notes) {
+  const groups = new Map();
+  for (const note of notes || []) {
+    if (!groups.has(note.videoId)) {
+      groups.set(note.videoId, {
+        videoId: note.videoId,
+        videoTitle: note.videoTitle,
+        channelName: note.channelName,
+        notes: [],
+      });
+    }
+    groups.get(note.videoId).notes.push(note);
+  }
+  return [...groups.values()];
+}
+
+/**
+ * Renders every saved note as Markdown, grouped by video with earliest
+ * timestamp first within each video (a natural reading order, unlike
+ * storage's newest-saved-first order).
+ */
+function buildNotesMarkdown(notes) {
+  const groups = groupNotesByVideo(notes);
+  let markdown = `# DeepWatch Notes\n\nExported ${new Date().toLocaleString()}\n\n`;
+
+  for (const group of groups) {
+    markdown += `## ${group.videoTitle || "Untitled video"}\n\n`;
+    if (group.channelName) markdown += `${group.channelName}\n\n`;
+    markdown += `https://www.youtube.com/watch?v=${group.videoId}\n\n`;
+
+    const sorted = [...group.notes].sort(
+      (a, b) => (a.timestampSeconds || 0) - (b.timestampSeconds || 0),
+    );
+    for (const note of sorted) {
+      markdown += `- **[${note.timestamp}](${note.timestampedUrl})** "${note.text}"\n`;
+      if (note.userNote) {
+        markdown += `\n  ${note.userNote.replace(/\n/g, "\n  ")}\n`;
+      }
+      markdown += `\n`;
+    }
+  }
+
+  return markdown;
+}
+
+/**
+ * Exports every saved note (across all videos, regardless of the current
+ * This Video / All Notes filter) as one Markdown file.
+ */
+async function exportNotes() {
+  try {
+    const result = await chrome.runtime.sendMessage({
+      action: "getNotes",
+      videoId: null,
+    });
+    const notes = result?.notes || [];
+    if (!notes.length) {
+      alert("No notes saved yet.");
+      return;
+    }
+    const markdown = buildNotesMarkdown(notes);
+    downloadTextFile(markdown, `deepwatch-notes-${Date.now()}.md`);
+  } catch (error) {
+    console.error("[DeepWatch] Export notes error:", error);
   }
 }
 
@@ -3008,6 +3190,38 @@ function resetChatTabForNewVideo() {
   if (messages) {
     messages.innerHTML =
       '<p class="chat-placeholder">Select text above to analyze it, or type a question below.</p>';
+  }
+}
+
+/**
+ * Shows an upfront hint in the empty Chat placeholder when no Gemini key is
+ * configured yet, mirroring the Overview tab's chapter-list hint — instead
+ * of only finding out after sending a first message and getting an error.
+ * Never touches an actual conversation already in progress.
+ */
+async function maybeShowChatKeyHint() {
+  const messages = document.getElementById("chatMessages");
+  if (!messages || messages.querySelector(".chat-message")) return;
+
+  try {
+    const configStatus = await chrome.runtime.sendMessage({
+      action: "checkConfig",
+    });
+    const placeholder = messages.querySelector(".chat-placeholder");
+    if (!configStatus?.hasAiKey) {
+      if (placeholder) {
+        placeholder.textContent =
+          "Add your Gemini API key in Settings to use Chat.";
+      }
+    } else if (
+      placeholder &&
+      placeholder.textContent.includes("Add your Gemini API key")
+    ) {
+      placeholder.textContent =
+        "Select text above to analyze it, or type a question below.";
+    }
+  } catch (_error) {
+    // Leave whatever placeholder is already showing.
   }
 }
 
