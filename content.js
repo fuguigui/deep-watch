@@ -90,7 +90,7 @@ function tryInjectNoteButton() {
 
     if (attempts >= maxAttempts) {
       debugLog(
-        "[YouTube Digest Content] Player container not found after retries, giving up",
+        "[DeepWatch Content] Player container not found after retries, giving up",
       );
       if (ytdNoteButtonRetryTimer) {
         clearInterval(ytdNoteButtonRetryTimer);
@@ -122,12 +122,12 @@ if (document.readyState === "loading") {
  * When they send key moments, we highlight them on the progress bar.
  */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  debugLog("[YouTube Digest Content] Received message:", message.action, message);
+  debugLog("[DeepWatch Content] Received message:", message.action, message);
 
   if (message.action === "getVideoInfo") {
     // Read video title and channel name from the page
     const info = extractVideoInfo();
-    debugLog("[YouTube Digest Content] Returning video info:", info);
+    debugLog("[DeepWatch Content] Returning video info:", info);
     sendResponse(info);
     return false; // Synchronous response
   }
@@ -150,7 +150,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "seekTo") {
     // Jump the video to a specific timestamp
-    debugLog("[YouTube Digest Content] Seeking to:", message.seconds);
+    debugLog("[DeepWatch Content] Seeking to:", message.seconds);
     seekToTimestamp(message.seconds);
     sendResponse({ success: true });
     return false;
@@ -164,7 +164,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // Unknown action - still send a response to prevent hanging
-  debugLog("[YouTube Digest Content] Unknown action:", message.action);
+  debugLog("[DeepWatch Content] Unknown action:", message.action);
   sendResponse({ success: false, error: "Unknown action" });
   return false;
 });
@@ -177,7 +177,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
  * Injects a "Digest" button into YouTube's action bar.
  * The button appears next to Share, Save, etc. below the video.
  *
- * When clicked, it opens the YouTube Digest side panel.
+ * When clicked, it opens the DeepWatch side panel.
  */
 function isVisibleDigestHost(element) {
   if (!element || !element.isConnected) return false;
@@ -276,16 +276,27 @@ function createDigestButton() {
     e.preventDefault();
     e.stopPropagation();
 
-    debugLog("[YouTube Digest] Digest button clicked");
+    debugLog("[DeepWatch] Digest button clicked");
 
     // Send message to background script to open side panel
     try {
       const result = await chrome.runtime.sendMessage({
         action: "openSidePanel",
       });
-      debugLog("[YouTube Digest] openSidePanel response:", result);
+      debugLog("[DeepWatch] openSidePanel response:", result);
     } catch (err) {
-      console.error("[YouTube Digest] Failed to open side panel:", err);
+      // The extension is reloaded/updated fairly often during normal use
+      // (e.g. a Chrome update), which invalidates this tab's old content
+      // script — chrome.runtime becomes unusable until the page reloads.
+      // Surface that to the user instead of silently failing.
+      if (err?.message?.includes("Extension context invalidated")) {
+        showErrorToast(
+          "DeepWatch was updated. Refresh this page to keep using it.",
+        );
+      } else {
+        console.error("[DeepWatch] Failed to open side panel:", err);
+        showErrorToast("Couldn't open DeepWatch. Please try again.");
+      }
     }
   });
 
@@ -311,7 +322,7 @@ function injectDigestButton() {
 
   const actionsContainer = findDigestButtonHost();
   if (!actionsContainer) {
-    debugLog("[YouTube Digest Content] Visible actions container not found yet");
+    debugLog("[DeepWatch Content] Visible actions container not found yet");
     return false;
   }
 
@@ -337,7 +348,7 @@ function injectDigestButton() {
     actionsContainer.insertBefore(digestButton, actionsContainer.firstChild);
   }
 
-  debugLog("[YouTube Digest Content] Digest button reconciled");
+  debugLog("[DeepWatch Content] Digest button reconciled");
   return true;
 }
 
@@ -419,7 +430,7 @@ function injectNoteButton() {
 
   if (!playerContainer) {
     debugLog(
-      "[YouTube Digest Content] Player container not found yet, will retry",
+      "[DeepWatch Content] Player container not found yet, will retry",
     );
     return;
   }
@@ -432,7 +443,7 @@ function injectNoteButton() {
     playerContainer.style.position = "relative";
   }
 
-  debugLog("[YouTube Digest Content] Injecting note button");
+  debugLog("[DeepWatch Content] Injecting note button");
 
   // Create the note button — a soft rounded pill that floats over the player
   const noteButton = document.createElement("button");
@@ -512,7 +523,7 @@ function injectNoteButton() {
 
   playerContainer.appendChild(noteButton);
 
-  debugLog("[YouTube Digest Content] Note button injected");
+  debugLog("[DeepWatch Content] Note button injected");
 }
 
 function showNoteButton() {
@@ -568,11 +579,11 @@ function handleNoteKeyboardShortcut(e) {
  * Captures the current timestamp and saves it as a note.
  */
 async function saveCurrentNote() {
-  debugLog("[YouTube Digest] Saving note");
+  debugLog("[DeepWatch] Saving note");
 
   const video = document.querySelector("video.html5-main-video");
   if (!video) {
-    console.error("[YouTube Digest] No video element found");
+    console.error("[DeepWatch] No video element found");
     return;
   }
 
@@ -611,14 +622,14 @@ async function saveCurrentNote() {
         noteButton.innerHTML =
           '<span style="letter-spacing: 0.2px;">ERROR</span>';
       }
-      console.error("[YouTube Digest] Save note error:", result.error);
+      console.error("[DeepWatch] Save note error:", result.error);
     }
   } catch (err) {
     if (noteButton) {
       noteButton.innerHTML =
         '<span style="letter-spacing: 0.2px;">ERROR</span>';
     }
-    console.error("[YouTube Digest] Save note exception:", err);
+    console.error("[DeepWatch] Save note exception:", err);
   }
 
   setTimeout(() => {
@@ -631,9 +642,67 @@ async function saveCurrentNote() {
 }
 
 /**
+ * Injects the shared toast slide-in animation once per page.
+ */
+function ensureToastAnimationStyles() {
+  if (document.getElementById("ytd-toast-animation-style")) return;
+  const style = document.createElement("style");
+  style.id = "ytd-toast-animation-style";
+  style.textContent = `
+    @keyframes ytdSlideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+/**
+ * Shows a lightweight error toast for failures that would otherwise be
+ * silent to the user (e.g. a failed background message).
+ */
+function showErrorToast(message) {
+  ensureToastAnimationStyles();
+
+  const existing = document.getElementById("ytd-error-toast");
+  if (existing) existing.remove();
+
+  const toast = document.createElement("div");
+  toast.id = "ytd-error-toast";
+  toast.textContent = message;
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 999999;
+    background: #ffffff;
+    border: 1px solid #ece5d9;
+    border-left: 4px solid #ff0000;
+    border-radius: 10px;
+    padding: 14px 18px;
+    max-width: 320px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
+    font-family: system-ui, -apple-system, "Roboto", sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #2e2a24;
+    animation: ytdSlideIn 0.3s ease;
+  `;
+
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = "ytdSlideIn 0.3s ease reverse";
+    setTimeout(() => toast.remove(), 300);
+  }, 5000);
+}
+
+/**
  * Shows a toast notification when a note is saved.
  */
 function showNoteSavedToast(note) {
+  ensureToastAnimationStyles();
+
   // Remove existing toast
   const existing = document.getElementById("ytd-note-toast");
   if (existing) existing.remove();
@@ -663,16 +732,6 @@ function showNoteSavedToast(note) {
     font-family: system-ui, -apple-system, "Roboto", sans-serif;
     animation: ytdSlideIn 0.3s ease;
   `;
-
-  // Add animation keyframes
-  const style = document.createElement("style");
-  style.textContent = `
-    @keyframes ytdSlideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-  `;
-  document.head.appendChild(style);
 
   // Copy link handler
   toast.querySelector("a").addEventListener("click", async (e) => {
@@ -768,11 +827,11 @@ function highlightKeyMoments(moments, videoDuration) {
 function seekToTimestamp(seconds) {
   const video = document.querySelector("video.html5-main-video");
   if (!video) {
-    console.error("[YouTube Digest Content] No video element found for seek");
+    console.error("[DeepWatch Content] No video element found for seek");
     return;
   }
 
-  debugLog("[YouTube Digest Content] Seeking to:", seconds);
+  debugLog("[DeepWatch Content] Seeking to:", seconds);
   video.currentTime = seconds;
   // Also play the video if it's paused
   if (video.paused) {

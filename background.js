@@ -28,7 +28,7 @@ const debugLog = (...args) => {
 chrome.storage.local
   .setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" })
   .catch((error) =>
-    console.warn("[YouTube Digest] Could not restrict storage access:", error),
+    console.warn("[DeepWatch] Could not restrict storage access:", error),
   );
 
 async function getSettings() {
@@ -380,7 +380,7 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
  * Keep the side panel scoped to YouTube tabs only.
  *
  * Chrome side panels are "global" by default: once opened, the panel follows
- * you to every tab. To make YouTube Digest behave like a YouTube-only tool, we
+ * you to every tab. To make DeepWatch behave like a YouTube-only tool, we
  * enable the panel on YouTube tabs and disable it everywhere else. Disabling
  * on a tab makes Chrome hide/close the panel for that tab, so it never lingers
  * on a new tab or some other website.
@@ -397,7 +397,7 @@ async function closePanelForTab(tabId, windowId) {
   if (typeof chrome.sidePanel.close !== "function") return;
 
   try {
-    // This closes the tab-specific panel used by YouTube Digest.
+    // This closes the tab-specific panel used by DeepWatch.
     await chrome.sidePanel.close({ tabId });
     return;
   } catch (error) {
@@ -594,7 +594,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.action === "openSidePanel") {
     const tabId = sender.tab?.id;
-    debugLog("[YouTube Digest BG] openSidePanel requested from tab:", tabId);
+    debugLog("[DeepWatch BG] openSidePanel requested from tab:", tabId);
 
     // Re-enable the panel (it may have been disabled by auto-close) and open it.
     // IMPORTANT: we call setOptions + open synchronously (no await between them)
@@ -617,7 +617,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }, 300);
         })
         .catch((err) => {
-          console.error("[YouTube Digest BG] openSidePanel error:", err);
+          console.error("[DeepWatch BG] openSidePanel error:", err);
         });
     } else {
       // Fallback: find the active tab
@@ -632,7 +632,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             });
             chrome.sidePanel.open({ tabId: tabs[0].id }).catch((err) => {
               console.error(
-                "[YouTube Digest BG] openSidePanel fallback error:",
+                "[DeepWatch BG] openSidePanel fallback error:",
                 err,
               );
             });
@@ -646,7 +646,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Relay messages from side panel to content script
   if (message.action === "relayToContent") {
-    debugLog("[YouTube Digest BG] Relay request:", message.payload?.action);
+    debugLog("[DeepWatch BG] Relay request:", message.payload?.action);
     (async () => {
       try {
         // Query specifically for YouTube tabs to avoid side panel context issues
@@ -656,7 +656,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           lastFocusedWindow: true,
         });
         debugLog(
-          "[YouTube Digest BG] Active tab in last focused window:",
+          "[DeepWatch BG] Active tab in last focused window:",
           tabs.length,
           tabs[0]?.url,
         );
@@ -667,18 +667,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             url: "https://www.youtube.com/*",
             active: true,
           });
-          debugLog("[YouTube Digest BG] Active YouTube tabs:", tabs.length);
+          debugLog("[DeepWatch BG] Active YouTube tabs:", tabs.length);
         }
 
         // Still nothing? Try any YouTube tab
         if (!tabs[0]) {
           tabs = await chrome.tabs.query({ url: "https://www.youtube.com/*" });
-          debugLog("[YouTube Digest BG] Any YouTube tabs:", tabs.length);
+          debugLog("[DeepWatch BG] Any YouTube tabs:", tabs.length);
         }
 
         if (tabs[0]) {
           debugLog(
-            "[YouTube Digest BG] Sending to tab:",
+            "[DeepWatch BG] Sending to tab:",
             tabs[0].id,
             "URL:",
             tabs[0].url,
@@ -710,14 +710,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
           }
 
-          debugLog("[YouTube Digest BG] Got response from content:", response);
+          debugLog("[DeepWatch BG] Got response from content:", response);
           sendResponse({ success: true, response });
         } else {
-          debugLog("[YouTube Digest BG] No YouTube tab found");
+          debugLog("[DeepWatch BG] No YouTube tab found");
           sendResponse({ success: false, error: "No YouTube tab found" });
         }
       } catch (err) {
-        console.error("[YouTube Digest BG] Relay error:", err.message);
+        console.error("[DeepWatch BG] Relay error:", err.message);
         sendResponse({ success: false, error: err.message });
       }
     })();
@@ -759,7 +759,7 @@ async function getPlayerVideoDetails(tabId) {
     });
     return results?.[0]?.result || null;
   } catch (e) {
-    console.warn("[YouTube Digest BG] Player details unavailable:", e.message);
+    console.warn("[DeepWatch BG] Player details unavailable:", e.message);
     return null;
   }
 }
@@ -917,7 +917,7 @@ async function handleAnalyzeTranscript(
       promptVariables,
     );
 
-    debugLog("[YouTube Digest] Requesting video analysis", settings.aiModel);
+    debugLog("[DeepWatch] Requesting video analysis", settings.aiModel);
     const { text: responseText } = await requestAiCompletion({
       maxTokens: 8192,
       responseFormat: { type: "json_object" },
@@ -1127,10 +1127,10 @@ async function handleSaveNote(
       const cached = await chrome.storage.local.get(`digest_${videoId}`);
       if (cached[`digest_${videoId}`]?.transcript) {
         transcript = cached[`digest_${videoId}`].transcript;
-        debugLog("[YouTube Digest] Using cached transcript for note");
+        debugLog("[DeepWatch] Using cached transcript for note");
       }
     } catch (e) {
-      debugLog("[YouTube Digest] No cached transcript, fetching...");
+      debugLog("[DeepWatch] No cached transcript, fetching...");
     }
 
     // If no cached transcript, fetch it
@@ -1251,7 +1251,7 @@ async function handleSaveNote(
 
     return { success: true, note };
   } catch (error) {
-    console.error("[YouTube Digest] Save note error:", error);
+    console.error("[DeepWatch] Save note error:", error);
     return { success: false, error: error.message };
   }
 }
@@ -1274,7 +1274,7 @@ async function cleanupNoteText(
   }
 
   try {
-    debugLog("[YouTube Digest] Requesting note cleanup");
+    debugLog("[DeepWatch] Requesting note cleanup");
     const variables = {
       videoTitle: videoTitle || "Unknown",
       fullContext,
@@ -1311,7 +1311,7 @@ async function cleanupNoteText(
       }
     } catch (parseError) {
       console.warn(
-        "[YouTube Digest] JSON parse failed for note, stripping preambles:",
+        "[DeepWatch] JSON parse failed for note, stripping preambles:",
         parseError,
       );
       result = result.replace(
@@ -1329,7 +1329,7 @@ async function cleanupNoteText(
 
     return result.slice(0, 3000);
   } catch (e) {
-    console.error("[YouTube Digest] Cleanup error:", e);
+    console.error("[DeepWatch] Cleanup error:", e);
   }
 
   // Return combined raw text if cleanup fails
@@ -1446,7 +1446,7 @@ async function handleExplainSelection(
       variables,
     );
 
-    debugLog("[YouTube Digest] Requesting selection explanation");
+    debugLog("[DeepWatch] Requesting selection explanation");
     const { text: explanation } = await requestAiCompletion({
       maxTokens: 1024,
       messages: [
@@ -1511,7 +1511,7 @@ async function handleChatMessage(messages, videoTitle) {
         content: message.content.slice(0, 8000),
       }));
 
-    debugLog("[YouTube Digest] Requesting chat reply");
+    debugLog("[DeepWatch] Requesting chat reply");
     const { text } = await requestAiCompletion({
       maxTokens: 2048,
       temperature: 0.4,
@@ -1710,7 +1710,7 @@ async function handleTranslateContent(
     }
     return { success: true, translatedContent: aligned };
   } catch (error) {
-    console.error("[YouTube Digest] Translation error:", error);
+    console.error("[DeepWatch] Translation error:", error);
     return { success: false, error: error.message || "Translation failed" };
   }
 }
