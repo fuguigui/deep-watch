@@ -901,7 +901,7 @@ async function handleAnalyzeTranscript(
       return {
         success: false,
         error: "NO_AI_KEY",
-        message: "Gemini API key not configured. Open DeepWatch Settings.",
+        message: "LLM API key not configured. Open DeepWatch Settings.",
       };
     }
 
@@ -982,14 +982,14 @@ async function handleAnalyzeTranscript(
       return {
         success: false,
         error: "INVALID_AI_KEY",
-        message: "Gemini rejected the API key.",
+        message: "The LLM provider rejected the API key.",
       };
     }
     if (error.status === 429) {
       return {
         success: false,
         error: "RATE_LIMITED",
-        message: "Gemini rate-limited this request. Try again shortly.",
+        message: "The LLM provider rate-limited this request. Try again shortly.",
       };
     }
     return {
@@ -1464,7 +1464,7 @@ async function handleExplainSelection(
       return {
         success: false,
         error: "NO_AI_KEY",
-        message: "Gemini API key not configured.",
+        message: "LLM API key not configured.",
       };
     }
 
@@ -1525,7 +1525,7 @@ async function handleChatMessage(messages, videoTitle) {
       return {
         success: false,
         error: "NO_AI_KEY",
-        message: "Gemini API key not configured. Open DeepWatch Settings.",
+        message: "LLM API key not configured. Open DeepWatch Settings.",
       };
     }
 
@@ -1696,7 +1696,7 @@ async function handleTranslateContent(
       return {
         success: false,
         error: "NO_AI_KEY",
-        message: "Gemini API key not configured. Open DeepWatch Settings.",
+        message: "LLM API key not configured. Open DeepWatch Settings.",
       };
     }
 

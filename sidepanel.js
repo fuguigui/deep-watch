@@ -261,7 +261,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupEventListeners();
   await evictOldCacheEntries(20);
 
-  // A Gemini key is optional, not a precondition — Transcript and Notes
+  // An LLM key is optional, not a precondition — Transcript and Notes
   // work fully without one. AI-only features (Overview, translation,
   // Explain, Chat) each check for a key themselves when actually used and
   // show a friendly "add your key in Settings" message at that point,
@@ -1662,14 +1662,14 @@ function escapeHtml(text) {
 }
 
 /**
- * Turns a failed AI feature's response into a friendly message. A Gemini
+ * Turns a failed AI feature's response into a friendly message. An LLM
  * key is optional, so missing-key results are common and expected here
  * (never a crash) — this just points the person at Settings instead of
  * showing them the raw "NO_AI_KEY" error code.
  */
 function friendlyAiErrorMessage(result, featureLabel) {
   if (result?.error === "NO_AI_KEY") {
-    return `Add your Gemini API key in Settings to use ${featureLabel}.`;
+    return `Add your LLM API key in Settings to use ${featureLabel}.`;
   }
   return result?.message || result?.error || "Something went wrong.";
 }
@@ -3113,7 +3113,7 @@ function resetChatTabForNewVideo() {
 }
 
 /**
- * Shows an upfront hint in the empty Chat placeholder when no Gemini key is
+ * Shows an upfront hint in the empty Chat placeholder when no LLM key is
  * configured yet, mirroring the Overview tab's chapter-list hint — instead
  * of only finding out after sending a first message and getting an error.
  * Never touches an actual conversation already in progress.
@@ -3130,11 +3130,11 @@ async function maybeShowChatKeyHint() {
     if (!configStatus?.hasAiKey) {
       if (placeholder) {
         placeholder.textContent =
-          "Add your Gemini API key in Settings to use Chat.";
+          "Add your LLM API key in Settings to use Chat.";
       }
     } else if (
       placeholder &&
-      placeholder.textContent.includes("Add your Gemini API key")
+      placeholder.textContent.includes("Add your LLM API key")
     ) {
       placeholder.textContent =
         "Type a question below to chat about this video.";
