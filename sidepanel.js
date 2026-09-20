@@ -1082,6 +1082,80 @@ function seekFromTranscriptEntryClick(event, seconds) {
   seekTo(seconds);
 }
 
+const TRANSCRIPT_NOTE_ICON =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z"></path><path d="M12 8v5"></path><path d="M9.5 10.5h5"></path></svg>';
+const TRANSCRIPT_NOTE_SAVED_ICON =
+  '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>';
+
+/**
+ * Builds the small "save as note" button shown at the bottom-right of every
+ * transcript row. It saves the row's own words (original language, exactly as
+ * in the transcript) at the row's timestamp, the same way the selection
+ * toolbar's Note button does — no AI request, no seeking.
+ */
+function createTranscriptNoteButton(text, seconds) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "transcript-note-btn";
+  button.title = "Save as note";
+  button.setAttribute("aria-label", "Save this line as a note");
+  button.innerHTML = TRANSCRIPT_NOTE_ICON;
+
+  // Keep the row's click-to-seek and the selection toolbar out of this.
+  ["mousedown", "mouseup"].forEach((eventName) => {
+    button.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+  });
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void saveTranscriptRowAsNote(button, text, seconds);
+  });
+  return button;
+}
+
+async function saveTranscriptRowAsNote(button, text, seconds) {
+  const videoId = currentVideoId;
+  if (!videoId || !text || button.disabled) return;
+
+  const showResult = (state, icon, title) => {
+    button.classList.remove("saving", "saved", "error");
+    if (state) button.classList.add(state);
+    button.innerHTML = icon;
+    button.title = title;
+  };
+  const reset = () => {
+    showResult("", TRANSCRIPT_NOTE_ICON, "Save as note");
+    button.disabled = false;
+  };
+
+  button.disabled = true;
+  showResult("saving", TRANSCRIPT_NOTE_ICON, "Saving…");
+
+  try {
+    const result = await chrome.runtime.sendMessage({
+      action: "saveNote",
+      videoId,
+      timestamp: seconds,
+      videoTitle: currentVideoTitle,
+      channelName: currentChannelName,
+      selectedText: text,
+    });
+    if (!result?.success) {
+      throw new Error(result?.error || "Could not save note");
+    }
+
+    showResult("saved", TRANSCRIPT_NOTE_SAVED_ICON, "Saved to notes");
+    if (videoId === currentVideoId) loadNotes(currentVideoId);
+  } catch (error) {
+    console.error("[DeepWatch] Save transcript line as note error:", error);
+    showResult("error", TRANSCRIPT_NOTE_ICON, "Could not save note");
+  }
+  setTimeout(reset, 1500);
+}
+
 function renderTranscript() {
   if (!currentTranscript) return;
 
@@ -1107,6 +1181,8 @@ function renderTranscript() {
       <span class="transcript-time">${timestamp}</span>
       <span class="transcript-text">${renderSubtitleInlineMarkup(group.text)}</span>
     `;
+
+    div.appendChild(createTranscriptNoteButton(group.text, group.start));
 
     div.addEventListener("click", (event) =>
       seekFromTranscriptEntryClick(event, group.start),
@@ -2859,6 +2935,8 @@ function renderTranscriptModeRows(segments, mode) {
       <span class="transcript-time">${timestamp}</span>
       ${renderTranscriptSegmentContent(segment, mode, cached, "")}
     `;
+    div.appendChild(createTranscriptNoteButton(segment.text, segment.start));
+
     div.addEventListener("click", (event) =>
       seekFromTranscriptEntryClick(event, segment.start),
     );

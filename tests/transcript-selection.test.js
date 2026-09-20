@@ -139,3 +139,28 @@ test("the panel never borrows a background YouTube tab", () => {
     /chrome\.tabs\.query\(\{ url: "https:\/\/www\.youtube\.com\/\*" \}\)/,
   );
 });
+
+test("every transcript row has a save-as-note button that does not seek", () => {
+  // Raw rows and translated/bilingual rows both get the button.
+  assert.match(
+    source,
+    /div\.appendChild\(createTranscriptNoteButton\(group\.text, group\.start\)\)/,
+  );
+  assert.match(
+    source,
+    /div\.appendChild\(createTranscriptNoteButton\(segment\.text, segment\.start\)\)/,
+  );
+
+  // Clicking it must not reach the row's click-to-seek handler.
+  assert.match(
+    source,
+    /button\.addEventListener\("click", \(event\) => \{\s+event\.preventDefault\(\);\s+event\.stopPropagation\(\);\s+void saveTranscriptRowAsNote\(button, text, seconds\);/,
+  );
+
+  // It saves the row's exact words at the row's time, like the selection
+  // toolbar's Note button, and refreshes only the video it was saved for.
+  assert.match(
+    source,
+    /async function saveTranscriptRowAsNote[\s\S]*action: "saveNote"[\s\S]*timestamp: seconds[\s\S]*selectedText: text[\s\S]*videoId === currentVideoId\) loadNotes/,
+  );
+});
