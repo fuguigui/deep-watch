@@ -482,7 +482,11 @@ function setNotesFilter(showAll) {
 // VIDEO DETECTION
 // ============================================================
 
+let checkCurrentTabGeneration = 0;
+
 async function checkCurrentTab() {
+  // A newer check (the user moved on to another video) supersedes this one.
+  const generation = ++checkCurrentTabGeneration;
   try {
     // The panel belongs only to the active tab. Looking for another open
     // YouTube tab here can keep an old transcript visible on a non-YouTube
@@ -534,6 +538,7 @@ async function checkCurrentTab() {
         currentVideoDuration = 0;
       }
 
+      if (generation !== checkCurrentTabGeneration) return;
       loadVideo(videoId, tab.url);
     } else {
       showState("welcome");
@@ -573,12 +578,20 @@ function extractVideoId(url) {
 // VIDEO LOADING PIPELINE
 // ============================================================
 
+let videoLoadGeneration = 0;
+
 async function loadVideo(videoId, videoUrl) {
   // Check if we already have this video loaded in memory
   if (videoId === currentVideoId && currentAnalysis) {
     showState("results");
     return;
   }
+
+  // Every await below can outlive the video it was started for (the user
+  // clicks the next video, or autoplay advances). A stale load must stop
+  // instead of writing its data into the newer video's panel and cache.
+  const generation = ++videoLoadGeneration;
+  const isStale = () => generation !== videoLoadGeneration;
 
   const videoChanged = videoId !== currentVideoId;
 
@@ -594,6 +607,7 @@ async function loadVideo(videoId, videoUrl) {
     // An unseen video always starts in Original, so opening it never spends
     // translation tokens. A saved choice is restored only for this video.
     currentTranscriptMode = await loadDisplayLanguageMode(videoId);
+    if (isStale()) return;
     document
       .getElementById("contentArea")
       ?.classList.toggle(
@@ -604,6 +618,7 @@ async function loadVideo(videoId, videoUrl) {
 
   // Check cache for this video
   const cached = await loadFromCache(videoId);
+  if (isStale()) return;
   if (cached) {
     debugLog("Loading from cache:", videoId);
     currentVideoId = videoId;
@@ -680,6 +695,7 @@ async function loadVideo(videoId, videoUrl) {
     videoId: videoId,
     tabId: youtubeTabId,
   });
+  if (isStale()) return;
 
   if (!transcriptResult.success) {
     showError(
@@ -1984,6 +2000,10 @@ function getTranscriptContext(selectedText) {
  * without consuming API tokens or refetching captions.
  * Cache expires after 30 days. Oldest entries evicted when > 20 videos cached.
  */
+// Bump when cached entries can no longer be trusted (v2: transcripts could
+// belong to the previously watched video).
+const VIDEO_CACHE_VERSION = 2;
+
 async function saveToCache(videoId) {
   if (!videoId || !currentTranscript) return;
 
@@ -2013,6 +2033,7 @@ async function saveToCache(videoId) {
       paragraphCache: paragraphCacheForVideo,
       interfaceCache: interfaceCacheForVideo,
       timestamp: Date.now(),
+      cacheVersion: VIDEO_CACHE_VERSION,
     };
 
     await chrome.storage.local.set({ [`video_cache_${videoId}`]: cacheData });
@@ -2083,6 +2104,13 @@ async function loadFromCache(videoId) {
     const cached = result[`video_cache_${videoId}`];
 
     if (!cached) return null;
+
+    // Entries written before the transcript was tied to its video may hold
+    // another video's transcript; drop them and fetch again.
+    if (cached.cacheVersion !== VIDEO_CACHE_VERSION) {
+      await chrome.storage.local.remove(`video_cache_${videoId}`);
+      return null;
+    }
 
     // Cache expires after 30 days
     const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;

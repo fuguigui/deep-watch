@@ -125,11 +125,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   debugLog("[DeepWatch Content] Received message:", message.action, message);
 
   if (message.action === "getVideoInfo") {
-    // Read video title and channel name from the page
-    const info = extractVideoInfo();
-    debugLog("[DeepWatch Content] Returning video info:", info);
-    sendResponse(info);
-    return false; // Synchronous response
+    // Read video title and channel name from the page. After a YouTube
+    // navigation the DOM can still hold the previous video's title for a
+    // moment, so wait until it agrees with the page title first.
+    waitForFreshVideoInfo().then((info) => {
+      debugLog("[DeepWatch Content] Returning video info:", info);
+      sendResponse(info);
+    });
+    return true; // Asynchronous response
   }
 
   if (message.action === "highlightMoments") {
@@ -789,6 +792,36 @@ function extractVideoInfo() {
     duration: videoElement?.duration || 0,
     description: descriptionElement?.textContent?.trim() || "",
   };
+}
+
+/**
+ * document.title is updated by YouTube when navigation finishes, while the
+ * title/description elements are re-rendered separately and can lag behind
+ * (still showing the previous video). Compares the two.
+ */
+function videoTitleMatchesPageTitle() {
+  const heading = document
+    .querySelector(
+      "h1.ytd-watch-metadata yt-formatted-string, #title h1 yt-formatted-string",
+    )
+    ?.textContent?.trim();
+  const pageTitle = document.title
+    .replace(/^\(\d+\)\s*/, "")
+    .replace(/\s*-\s*YouTube$/, "")
+    .trim();
+  return Boolean(heading) && heading === pageTitle;
+}
+
+/**
+ * Resolves with extractVideoInfo() once the on-page title belongs to the
+ * current video, or after a short timeout with whatever is there.
+ */
+async function waitForFreshVideoInfo(timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  while (!videoTitleMatchesPageTitle() && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  return extractVideoInfo();
 }
 
 // ============================================================

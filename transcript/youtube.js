@@ -51,13 +51,26 @@ var DW_TRANSCRIPT_YOUTUBE = (() => {
    * Opens (if needed) and reads YouTube's own transcript panel, entirely
    * inside the page's own JS world.
    *
+   * YouTube is a single-page app: the transcript panel's DOM survives
+   * navigation, so after watching video A its lines are still sitting in the
+   * (closed) panel when video B loads. Reading "whatever lines are there"
+   * therefore returns A's transcript for B. To prevent that, every
+   * successful read is stamped on the page (window.__deepWatchTranscript) with
+   * the video it came from and a signature of its lines; existing lines are
+   * only trusted when that stamp matches the requested video, otherwise the
+   * panel is reopened and we wait for YouTube to replace them.
+   *
+   * @param {number} tabId
+   * @param {string|null} expectedVideoId - The video the caller wants; the
+   *   page is checked to actually be showing it.
    * @returns {{ok: true, lines: [{text, start}]} | {ok: false, error}}
    */
-  async function fetchInPage(tabId) {
+  async function fetchInPage(tabId, expectedVideoId) {
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       world: "MAIN",
-      func: async () => {
+      args: [expectedVideoId || null],
+      func: async (videoId) => {
         // YouTube has shipped at least two different transcript panel
         // implementations (transcript-segment-view-model is the current
         // one; ytd-transcript-segment-renderer is the older one some
@@ -92,16 +105,106 @@ var DW_TRANSCRIPT_YOUTUBE = (() => {
           return lines;
         }
 
+        const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+        // A cheap fingerprint of a set of lines, used to tell "the panel
+        // still holds the previous content" from "the panel was refreshed".
+        function signature(lines) {
+          if (lines.length === 0) return null;
+          const last = lines[lines.length - 1];
+          return `${lines.length}|${lines[0].text}|${last.start}|${last.text}`;
+        }
+
+        function transcriptPanelIsOpen() {
+          return Array.from(
+            document.querySelectorAll(
+              "ytd-engagement-panel-section-list-renderer",
+            ),
+          ).some(
+            (panel) =>
+              panel.getAttribute("visibility") ===
+                "ENGAGEMENT_PANEL_VISIBILITY_EXPANDED" &&
+              panel.querySelector(
+                "transcript-segment-view-model, ytd-transcript-segment-renderer",
+              ),
+          );
+        }
+
+        function closeOpenPanels() {
+          try {
+            const panels = document.querySelectorAll(
+              "ytd-engagement-panel-section-list-renderer",
+            );
+            for (const panel of panels) {
+              if (
+                panel.getAttribute("visibility") ===
+                "ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"
+              ) {
+                panel.querySelector('button[aria-label="Close"]')?.click();
+              }
+            }
+          } catch (e) {
+            // Never treat a failure to close as an error.
+          }
+        }
+
+        // The page must actually be showing the requested video. After a
+        // SPA navigation the URL changes first and the watch page's DOM
+        // (description, transcript button) catches up a moment later.
+        function pageShowsVideo() {
+          if (!videoId) return true;
+          if (new URLSearchParams(location.search).get("v") !== videoId) {
+            return false;
+          }
+          const flexyId = document
+            .querySelector("ytd-watch-flexy")
+            ?.getAttribute("video-id");
+          return !flexyId || flexyId === videoId;
+        }
+
         try {
+          const pageDeadline = Date.now() + 5000;
+          while (!pageShowsVideo()) {
+            if (Date.now() > pageDeadline) {
+              return { ok: false, error: "VIDEO_MISMATCH" };
+            }
+            await sleep(200);
+          }
+
+          const stamp = window.__deepWatchTranscript;
           let lines = readSegments();
+          const before = signature(lines);
+
+          // Lines from a read we made for this exact video are safe to reuse.
+          const trusted =
+            before !== null &&
+            videoId !== null &&
+            stamp?.videoId === videoId &&
+            stamp?.signature === before;
+
           let weOpenedPanel = false;
 
-          if (lines.length === 0) {
+          if (!trusted) {
+            // Whatever is in the panel may belong to another video. Make
+            // YouTube load this one's: if the panel is open, close it first
+            // so the button below really re-requests the transcript.
+            if (before !== null && transcriptPanelIsOpen()) {
+              closeOpenPanels();
+              await sleep(300);
+            }
+
             // Match the button structurally (inside this custom element),
-            // not by its label text, since that text is localized.
-            const openButton = document.querySelector(
-              "ytd-video-description-transcript-section-renderer button",
-            );
+            // not by its label text, since that text is localized. It can
+            // render a moment after navigation, so wait for it briefly.
+            let openButton = null;
+            const buttonDeadline = Date.now() + 3000;
+            while (!openButton) {
+              openButton = document.querySelector(
+                "ytd-video-description-transcript-section-renderer button",
+              );
+              if (openButton || Date.now() > buttonDeadline) break;
+              await sleep(200);
+            }
             if (!openButton) {
               return { ok: false, error: "NO_TRANSCRIPT" };
             }
@@ -109,34 +212,38 @@ var DW_TRANSCRIPT_YOUTUBE = (() => {
             weOpenedPanel = true;
 
             // YouTube fetches the transcript asynchronously once the panel
-            // opens; poll briefly rather than fixing a single delay.
+            // opens; poll briefly rather than fixing a single delay. Old
+            // lines still in the panel don't count: wait for them to change.
             const deadline = Date.now() + 8000;
             while (Date.now() < deadline) {
-              await new Promise((resolve) => setTimeout(resolve, 200));
+              await sleep(200);
               lines = readSegments();
-              if (lines.length > 0) break;
+              if (lines.length > 0 && signature(lines) !== before) break;
+            }
+
+            // Still identical to what was there before we asked. That is
+            // fine if we can't tell where it came from (e.g. the user
+            // opened the panel themselves) or it is provably this video's,
+            // but never if we know it is another video's leftovers.
+            if (
+              lines.length > 0 &&
+              signature(lines) === before &&
+              stamp?.signature === before &&
+              stamp?.videoId !== videoId
+            ) {
+              lines = [];
             }
           }
 
           // Best-effort: close the panel again if we're the ones who
           // opened it, so the viewer's page looks the way it did before.
-          // Never treat a failure to close as an error.
-          if (weOpenedPanel) {
-            try {
-              const panels = document.querySelectorAll(
-                "ytd-engagement-panel-section-list-renderer",
-              );
-              for (const panel of panels) {
-                if (
-                  panel.getAttribute("visibility") ===
-                  "ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"
-                ) {
-                  panel.querySelector('button[aria-label="Close"]')?.click();
-                }
-              }
-            } catch (e) {
-              // Ignore — see comment above.
-            }
+          if (weOpenedPanel) closeOpenPanels();
+
+          if (lines.length > 0 && videoId !== null) {
+            window.__deepWatchTranscript = {
+              videoId,
+              signature: signature(lines),
+            };
           }
 
           if (lines.length === 0) {
@@ -204,9 +311,11 @@ var DW_TRANSCRIPT_YOUTUBE = (() => {
    * Fetches the transcript for the YouTube video open in `tabId`.
    *
    * @param {number} tabId - The YouTube tab to read the player from.
+   * @param {string} [videoId] - The video the caller expects the tab to be
+   *   showing. Guards against reading the previous video's transcript.
    * @returns {Object} success/failure result, see file header for shape.
    */
-  async function fetchTranscript(tabId) {
+  async function fetchTranscript(tabId, videoId) {
     if (!tabId) {
       return {
         success: false,
@@ -217,7 +326,7 @@ var DW_TRANSCRIPT_YOUTUBE = (() => {
 
     let result;
     try {
-      result = await fetchInPage(tabId);
+      result = await fetchInPage(tabId, videoId);
     } catch (error) {
       return {
         success: false,
@@ -233,6 +342,14 @@ var DW_TRANSCRIPT_YOUTUBE = (() => {
           success: false,
           error: "NO_TRANSCRIPT",
           message: "No transcript is available for this video.",
+        };
+      }
+      if (result.error === "VIDEO_MISMATCH") {
+        return {
+          success: false,
+          error: "VIDEO_MISMATCH",
+          message:
+            "The YouTube tab moved to a different video before the transcript could be read.",
         };
       }
       if (result.error === "EMPTY_TRANSCRIPT") {

@@ -817,13 +817,13 @@ async function getPlayerVideoDetails(tabId) {
  * { transcript, transcriptText, transcriptTextTimestamped, language }
  * shape below.
  *
- * @param {string} videoId - The video ID (kept for the caller's cache key)
+ * @param {string} videoId - The video ID the tab is expected to be showing
  * @param {number} tabId - The tab the video is open in
  * @returns {Object} - { success, transcript, transcriptText, transcriptTextTimestamped, language } or { success: false, error, message }
  */
 async function handleFetchTranscript(videoId, tabId) {
   try {
-    return await DW_TRANSCRIPT_YOUTUBE.fetchTranscript(tabId);
+    return await DW_TRANSCRIPT_YOUTUBE.fetchTranscript(tabId, videoId);
   } catch (error) {
     console.error("Transcript fetch error:", error);
     return {
